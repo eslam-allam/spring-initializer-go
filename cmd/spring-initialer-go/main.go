@@ -6,9 +6,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	models "github.com/eslam-allam/spring-initializer-go/internal/models"
 )
 
 const springUrl = "https://start.spring.io"
@@ -57,7 +58,15 @@ type checkListGroup struct {
 	items   []checkListItem
 }
 
+type section int
+
+const (
+	DEPENDENCIES section = iota
+)
+
 type model struct {
+	currentSection section
+
 	artifactId    string
 	description   string
 	groupId       string
@@ -68,7 +77,7 @@ type model struct {
 	packagingType string
 	version       string
 	bootVersion   []checkListItem
-	dependencies  []checkListGroup
+	dependencies  tea.Model
 	javaVersion   []checkListItem
 }
 
@@ -78,7 +87,7 @@ func initialModel() model {
 		panic(err)
 	}
 	bootVersions := make([]checkListItem, len(metaData.BootVersion.Values))
-	dependencies := make([]checkListGroup, len(metaData.Dependencies.Values))
+	dependencies := make([]models.Dependency, len(metaData.Dependencies.Values))
 	javaVersions := make([]checkListItem, len(metaData.JavaVersion.Values))
 
 	for i, field := range metaData.BootVersion.Values {
@@ -87,19 +96,10 @@ func initialModel() model {
 			name: field.Name,
 		}
 	}
-
-	for i, dependencyGroup := range metaData.Dependencies.Values {
-		g := checkListGroup{
-			groupId: dependencyGroup.Name,
-			items:   make([]checkListItem, len(dependencyGroup.Values)),
+	for _, dependencyGroup := range metaData.Dependencies.Values {
+		for _, groupItem := range dependencyGroup.Values {
+			dependencies = append(dependencies, models.Dependency{GroupName: dependencyGroup.Name, Id: groupItem.Id, Name: groupItem.Name})
 		}
-		for j, groupItem := range dependencyGroup.Values {
-			g.items[j] = checkListItem{
-				id:   groupItem.Id,
-				name: groupItem.Name,
-			}
-		}
-		dependencies[i] = g
 	}
 
 	for i, version := range metaData.JavaVersion.Values {
@@ -111,7 +111,7 @@ func initialModel() model {
 
 	return model{
 		bootVersion:  bootVersions,
-		dependencies: dependencies,
+		dependencies: models.NewModel(dependencies...),
 		javaVersion:  javaVersions,
 	}
 }
@@ -129,46 +129,14 @@ func main() {
 	}
 }
 
-func (m model) View() string {
-	s := strings.Builder{}
+var hoverStyle lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
 
-	for _, dependencyGroup := range m.dependencies {
-		s.WriteString(dependencyGroup.groupId)
-		s.WriteString("\n")
-		for _, item := range dependencyGroup.items {
-			if item.checked {
-				s.WriteString("✓")
-			} else {
-				s.WriteString(" ")
-			}
-			s.WriteString(item.name)
-			s.WriteString("\n")
-		}
-		s.WriteString("\n")
-	}
-	return s.String()
+func (m model) View() string {
+	return m.dependencies.View()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-
-    // Is it a key press?
-    case tea.KeyMsg:
-
-        // Cool, what was the actual key pressed?
-        switch msg.String() {
-
-        // These keys should exit the program.
-        case "ctrl+c", "q":
-            return m, tea.Quit
-
-        // The "up" and "k" keys move the cursor up
-        }
-    }
-
-    // Return the updated model to the Bubble Tea runtime for processing.
-    // Note that we're not returning a command.
-    return m, nil
+	return m.dependencies.Update(msg)
 }
 
 func getMeta() (springInitMeta, error) {

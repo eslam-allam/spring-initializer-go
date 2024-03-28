@@ -3,30 +3,26 @@ package models
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	fuzzy "github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-type item struct {
-	id      string
-	name    string
-	checked string
-}
-
-type itemGroup struct {
-	name  string
-	items []item
-}
-
 type model struct {
-	Selected    map[int]struct{}
-	Groups      []itemGroup
-	Cursor      int
-	TotalItems  int
-	currentPage int
-	pageSize    int
+	Selected      map[int]struct{}
+	filter        string
+	depIds        []string
+	depGroups     []string
+	depNames      []string
+	filteredNames []string
+	filterField   textinput.Model
+	Cursor        int
+	currentPage   int
+	pageSize      int
+	footerToggled bool
 }
 
 type Dependency struct {
@@ -36,49 +32,45 @@ type Dependency struct {
 }
 
 func (m model) View() string {
-	s := strings.Builder{}
-	currentPage := m.Cursor / m.pageSize
-	startingIndex := currentPage * m.pageSize
-	lastIndex := startingIndex + m.pageSize - 1
-	itemIndex := 0
-	for _, page := range m.Groups {
-		hasItems := false
-		firstItem := true
-		for _, item := range page.items {
-			if itemIndex < startingIndex {
-				itemIndex++
-				continue
-			}
+	body := m.bodyView()
 
-			if itemIndex > lastIndex {
-				break
-			}
+	footer := "press / to filter, ↑↓ to navigate"
 
-			if firstItem {
-				s.WriteString(page.name)
-				s.WriteString("\n")
-				firstItem = false
-			}
-			hasItems = true
-
-			if _, ok := m.Selected[itemIndex]; ok {
-				s.WriteString("[✓] ")
-			} else {
-				s.WriteString("[ ] ")
-			}
-			itemDisplay := item.name
-			if itemIndex == m.Cursor {
-				itemDisplay = hoverStyle.Render(itemDisplay)
-			}
-			s.WriteString(itemDisplay)
-			s.WriteString("\n")
-			itemIndex++
-		}
-		if hasItems {
-			s.WriteRune('\n')
-		}
+	if m.footerToggled {
+		footer = m.filterField.View()
 	}
-	return s.String()
+	return lipgloss.JoinVertical(lipgloss.Left, body.String(), footer)
+}
+
+func (m model) bodyView() strings.Builder {
+	body := strings.Builder{}
+
+	pageNumber := m.Cursor / m.pageSize
+	startingIndex := pageNumber * m.pageSize
+	for i, item := range m.filteredNames {
+        if i < startingIndex {
+            continue
+        }
+
+        if i > startingIndex + m.pageSize - 1 {
+            return body
+        }
+
+		if _, ok := m.Selected[i]; ok {
+			body.WriteString("[✓] ")
+		} else {
+			body.WriteString("[ ] ")
+		}
+
+		itemDisplay := item
+		if i == m.Cursor {
+			itemDisplay = hoverStyle.Render(itemDisplay)
+		}
+		body.WriteString(itemDisplay)
+
+		body.WriteString("\n")
+	}
+	return body
 }
 
 func (m model) Init() tea.Cmd {
@@ -93,8 +85,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
+		case "/":
+			m.footerToggled = !m.footerToggled
+            if m.footerToggled {
+                return m, m.filterField.Focus()
+            }
+            m.filterField.Blur()
+			return m, nil
+
 		// These keys should exit the program.
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 
 		// The "up" and "k" keys move the cursor up
@@ -102,12 +102,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.Cursor > 0 {
 				m.Cursor--
 			}
+            return m, nil
 
 		// The "down" and "j" keys move the cursor down
 		case "down", "j":
-			if m.Cursor < m.TotalItems-1 {
+			if m.Cursor < len(m.filteredNames)-1 {
 				m.Cursor++
 			}
+            return m, nil
 
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
@@ -118,6 +120,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Selected[m.Cursor] = struct{}{}
 			}
+            return m, nil
+
+        case "esc":
+            if m.footerToggled{
+                m.footerToggled = false
+                m.filter = ""
+                m.filterField.Reset()
+                m.Cursor = 0
+                m.filteredNames = m.depNames
+            }
+		}
+
+		if m.footerToggled {
+			m.filterField, _ = m.filterField.Update(msg)
+			m.filter = m.filterField.Value()
+			m.filteredNames = fuzzy.FindFold(m.filter, m.depNames)
+			m.Cursor = 0
 		}
 	}
 
@@ -126,29 +145,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func NewModel(items ...Dependency) tea.Model {
-	itemMap := make(map[string][]item)
+func NewModel(dependencies ...Dependency) tea.Model {
+	filterField := textinput.New()
+	filterField.Placeholder = "press esc to stop filtering"
+	depNames := make([]string, len(dependencies))
+	depIds := make([]string, len(dependencies))
+	depGroups := make([]string, len(dependencies))
 
-	for _, o := range items {
-		itemMap[o.GroupName] = append(itemMap[o.GroupName], item{
-			id:   o.Id,
-			name: o.Name,
-		})
+	for i, d := range dependencies {
+		depNames[i] = d.Name
+		depIds[i] = d.Id
+		depGroups[i] = d.GroupName
 	}
+    filterField.SetSuggestions(depNames)
 
 	model := model{
-		TotalItems: len(items),
-		Selected:   make(map[int]struct{}),
-		pageSize:   5,
-		Groups:     make([]itemGroup, 0),
-	}
-
-	for group, items := range itemMap {
-
-		if group == "" || len(items) == 0 {
-			continue
-		}
-		model.Groups = append(model.Groups, itemGroup{name: group, items: items})
+		Selected:    make(map[int]struct{}),
+		pageSize:    5,
+		depIds:      depIds,
+		depNames:    depNames,
+		depGroups:   depGroups,
+		filterField: filterField,
+        filteredNames: depNames,
 	}
 
 	return model

@@ -87,7 +87,7 @@ func initialModel() model {
 		panic(err)
 	}
 	bootVersions := make([]checkListItem, len(metaData.BootVersion.Values))
-	dependencies := make([]models.Dependency, len(metaData.Dependencies.Values))
+	dependencies := make([]models.Dependency, 0)
 	javaVersions := make([]checkListItem, len(metaData.JavaVersion.Values))
 
 	for i, field := range metaData.BootVersion.Values {

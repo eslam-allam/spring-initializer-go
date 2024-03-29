@@ -130,114 +130,118 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+
+	case key.Matches(msg, m.mainKeys.Help):
+		m.help.ShowAll = !m.help.ShowAll
+	case key.Matches(msg, m.mainKeys.Filter):
+		m.help.ShowAll = false
+		m.filterToggled = !m.filterToggled
+		if m.filterToggled {
+			return m, m.filterField.Focus()
+		}
+
+	// These keys should exit the program.
+	case key.Matches(msg, m.mainKeys.Quit):
+		return m, tea.Quit
+
+	// The "up" and "k" keys move the cursor up
+	case key.Matches(msg, m.mainKeys.Up):
+		if m.cursor > 0 {
+			m.cursor--
+			m.paginate.Page = m.cursor / m.paginate.PerPage
+		}
+
+	// The "down" and "j" keys move the cursor down
+	case key.Matches(msg, m.mainKeys.Down):
+		if m.cursor < len(m.filteredDeps)-1 {
+			m.cursor++
+			m.paginate.Page = m.cursor / m.paginate.PerPage
+		}
+
+	case key.Matches(msg, m.mainKeys.PagePrev):
+		m.paginate.PrevPage()
+		m.cursor = m.paginate.Page * m.paginate.PerPage
+
+	case key.Matches(msg, m.mainKeys.PageNext):
+		m.paginate.NextPage()
+		m.cursor = m.paginate.Page * m.paginate.PerPage
+
+	// The "enter" key and the spacebar (a literal space) toggle
+	// the selected state for the item that the cursor is pointing at.
+	case key.Matches(msg, m.mainKeys.ToggleSelect):
+		currentId := m.filteredDeps[m.cursor].Id
+		if _, ok := m.Selected[currentId]; ok {
+			delete(m.Selected, currentId)
+		} else {
+			m.Selected[currentId] = struct{}{}
+		}
+		sort.Slice(m.dependencies, func(i, j int) bool {
+			if _, ok1 := m.Selected[m.dependencies[i].Id]; ok1 {
+				if _, ok2 := m.Selected[m.dependencies[j].Id]; ok2 {
+					return false
+				} else {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	return m, nil
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	// Is it a key press?
 	case tea.KeyMsg:
 
 		if m.filterToggled {
-
-			switch {
-
-			case key.Matches(msg, m.filterKeys.Submit):
-				m.filterToggled = false
-				m.filterField.Blur()
-
-			case key.Matches(msg, m.filterKeys.Cancel):
-				m.filterToggled = false
-				m.filter = ""
-				m.filterField.Reset()
-				m.cursor = 0
-				m.filteredDeps = m.dependencies
-				m.paginate.SetTotalPages(len(m.filteredDeps))
-				m.paginate.Page = 0
-				m.filterField.Blur()
-			}
-
-			m.filterField, _ = m.filterField.Update(msg)
-			newFilter := m.filterField.Value()
-
-			if newFilter == m.filter {
-				return m, nil
-			}
-
-			m.filter = newFilter
-
-			m.filteredDeps = filterDeps(m.dependencies, m.filter)
-			totalItems := len(m.filteredDeps)
-
-			if totalItems == 0 {
-				m.paginate.TotalPages = 1
-			} else {
-				m.paginate.SetTotalPages(len(m.filteredDeps))
-			}
-			m.paginate.Page = 0
-			m.cursor = 0
-
-			return m, nil
+			return updateFilter(msg, m)
 		}
-		// Cool, what was the actual key pressed?
-		switch {
 
-		case key.Matches(msg, m.mainKeys.Help):
-			m.help.ShowAll = !m.help.ShowAll
-		case key.Matches(msg, m.mainKeys.Filter):
-			m.help.ShowAll = false
-			m.filterToggled = !m.filterToggled
-			if m.filterToggled {
-				return m, m.filterField.Focus()
-			}
+		return m.updateMain(msg)
+	}
+	return m, nil
+}
 
-		// These keys should exit the program.
-		case key.Matches(msg, m.mainKeys.Quit):
-			return m, tea.Quit
+func updateFilter(msg tea.KeyMsg, m model) (tea.Model, tea.Cmd) {
+	switch {
 
-		// The "up" and "k" keys move the cursor up
-		case key.Matches(msg, m.mainKeys.Up):
-			if m.cursor > 0 {
-				m.cursor--
-				m.paginate.Page = m.cursor / m.paginate.PerPage
-			}
+	case key.Matches(msg, m.filterKeys.Submit):
+		m.filterToggled = false
+		m.filterField.Blur()
 
-		// The "down" and "j" keys move the cursor down
-		case key.Matches(msg, m.mainKeys.Down):
-			if m.cursor < len(m.filteredDeps)-1 {
-				m.cursor++
-				m.paginate.Page = m.cursor / m.paginate.PerPage
-			}
-
-		case key.Matches(msg, m.mainKeys.PagePrev):
-			m.paginate.PrevPage()
-			m.cursor = m.paginate.Page * m.paginate.PerPage
-
-		case key.Matches(msg, m.mainKeys.PageNext):
-			m.paginate.NextPage()
-			m.cursor = m.paginate.Page * m.paginate.PerPage
-
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
-		case key.Matches(msg, m.mainKeys.ToggleSelect):
-			currentId := m.filteredDeps[m.cursor].Id
-			if _, ok := m.Selected[currentId]; ok {
-				delete(m.Selected, currentId)
-			} else {
-				m.Selected[currentId] = struct{}{}
-			}
-			sort.Slice(m.dependencies, func(i, j int) bool {
-				if _, ok1 := m.Selected[m.dependencies[i].Id]; ok1 {
-					if _, ok2 := m.Selected[m.dependencies[j].Id]; ok2 {
-						return false
-					} else {
-						return true
-					}
-				}
-				return false
-			})
-		}
+	case key.Matches(msg, m.filterKeys.Cancel):
+		m.filterToggled = false
+		m.filter = ""
+		m.filterField.Reset()
+		m.cursor = 0
+		m.filteredDeps = m.dependencies
+		m.paginate.SetTotalPages(len(m.filteredDeps))
+		m.paginate.Page = 0
+		m.filterField.Blur()
 	}
 
-	// Return the updated model to the Bubble Tea runtime for processing.
-	// Note that we're not returning a command.
+	m.filterField, _ = m.filterField.Update(msg)
+	newFilter := m.filterField.Value()
+
+	if newFilter == m.filter {
+		return m, nil
+	}
+
+	m.filter = newFilter
+
+	m.filteredDeps = filterDeps(m.dependencies, m.filter)
+	totalItems := len(m.filteredDeps)
+
+	if totalItems == 0 {
+		m.paginate.TotalPages = 1
+	} else {
+		m.paginate.SetTotalPages(len(m.filteredDeps))
+	}
+	m.paginate.Page = 0
+	m.cursor = 0
+
 	return m, nil
 }
 

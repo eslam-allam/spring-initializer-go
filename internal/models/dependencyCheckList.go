@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,6 +16,8 @@ import (
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 type model struct {
+	mainKeys      MainKeyMap
+	filterKeys    FilterKeyMap
 	Selected      map[string]struct{}
 	filter        string
 	dependencies  []Dependency
@@ -21,7 +25,8 @@ type model struct {
 	filterField   textinput.Model
 	paginate      paginator.Model
 	cursor        int
-	footerToggled bool
+	filterToggled bool
+	help          help.Model
 }
 
 type Dependency struct {
@@ -30,17 +35,70 @@ type Dependency struct {
 	GroupName string
 }
 
+type MainKeyMap struct {
+	Up           key.Binding
+	Down         key.Binding
+	PagePrev     key.Binding
+	PageNext     key.Binding
+	ToggleSelect key.Binding
+	Filter       key.Binding
+	Help         key.Binding
+	Quit         key.Binding
+}
+
+func (k MainKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+func (k MainKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down},
+		{k.PagePrev, k.PageNext},
+		{k.ToggleSelect, k.Help},
+		{k.Filter, k.Quit},
+	}
+}
+
+var defaultMainKeys = MainKeyMap{
+	Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
+	Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
+	PagePrev:     key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "previous page")),
+	PageNext:     key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next page")),
+	ToggleSelect: key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "toggle selection")),
+	Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+	Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+	Quit:         key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q/ctrl+c", "quit")),
+}
+
+type FilterKeyMap struct {
+	Submit key.Binding
+	Cancel key.Binding
+}
+
+func (k FilterKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Submit, k.Cancel}
+}
+
+func (k FilterKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{}
+}
+
+var defaultFilterKeys = FilterKeyMap{
+	Submit: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit")),
+	Cancel: key.NewBinding(key.WithKeys("esc", "ctrl+c"), key.WithHelp("esc", "cancel")),
+}
+
 func (m model) View() string {
 	body := m.bodyView()
 	body = lipgloss.Place(100, m.paginate.PerPage, lipgloss.Left, lipgloss.Top, body)
 	body = lipgloss.JoinVertical(lipgloss.Center, body, m.paginate.View())
 
-	footer := "press / to filter, ↑↓ to navigate"
-
-	if m.footerToggled {
-		footer = m.filterField.View()
+	footer := m.help.View(m.mainKeys)
+	filter := m.filterField.View()
+	if m.filterToggled {
+		footer = m.help.View(m.filterKeys)
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, body, filter, footer)
 }
 
 func (m model) bodyView() string {
@@ -77,21 +135,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Is it a key press?
 	case tea.KeyMsg:
 
-		if m.footerToggled {
+		if m.filterToggled {
 
-			switch msg.String() {
+			switch {
 
-			case "enter":
-				m.footerToggled = false
+			case key.Matches(msg, m.filterKeys.Submit):
+				m.filterToggled = false
+				m.filterField.Blur()
 
-			case "esc", "ctrl+c":
-				m.footerToggled = false
+			case key.Matches(msg, m.filterKeys.Cancel):
+				m.filterToggled = false
 				m.filter = ""
 				m.filterField.Reset()
 				m.cursor = 0
 				m.filteredDeps = m.dependencies
 				m.paginate.SetTotalPages(len(m.filteredDeps))
 				m.paginate.Page = 0
+				m.filterField.Blur()
 			}
 
 			m.filterField, _ = m.filterField.Update(msg)
@@ -117,44 +177,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Cool, what was the actual key pressed?
-		switch msg.String() {
+		switch {
 
-		case "/":
-			m.footerToggled = !m.footerToggled
-			if m.footerToggled {
+		case key.Matches(msg, m.mainKeys.Help):
+			m.help.ShowAll = !m.help.ShowAll
+		case key.Matches(msg, m.mainKeys.Filter):
+			m.help.ShowAll = false
+			m.filterToggled = !m.filterToggled
+			if m.filterToggled {
 				return m, m.filterField.Focus()
 			}
-			m.filterField.Blur()
 
 		// These keys should exit the program.
-		case "ctrl+c", "q":
+		case key.Matches(msg, m.mainKeys.Quit):
 			return m, tea.Quit
 
 		// The "up" and "k" keys move the cursor up
-		case "up", "k":
+		case key.Matches(msg, m.mainKeys.Up):
 			if m.cursor > 0 {
 				m.cursor--
 				m.paginate.Page = m.cursor / m.paginate.PerPage
 			}
 
 		// The "down" and "j" keys move the cursor down
-		case "down", "j":
+		case key.Matches(msg, m.mainKeys.Down):
 			if m.cursor < len(m.filteredDeps)-1 {
 				m.cursor++
 				m.paginate.Page = m.cursor / m.paginate.PerPage
 			}
 
-		case "left", "h":
+		case key.Matches(msg, m.mainKeys.PagePrev):
 			m.paginate.PrevPage()
 			m.cursor = m.paginate.Page * m.paginate.PerPage
 
-		case "right", "l":
+		case key.Matches(msg, m.mainKeys.PageNext):
 			m.paginate.NextPage()
 			m.cursor = m.paginate.Page * m.paginate.PerPage
 
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
-		case "enter", " ":
+		case key.Matches(msg, m.mainKeys.ToggleSelect):
 			currentId := m.filteredDeps[m.cursor].Id
 			if _, ok := m.Selected[currentId]; ok {
 				delete(m.Selected, currentId)
@@ -191,7 +253,7 @@ func filterDeps(deps []Dependency, value string) []Dependency {
 
 func NewModel(dependencies ...Dependency) tea.Model {
 	filterField := textinput.New()
-	filterField.Placeholder = "press esc to stop filtering"
+	filterField.Placeholder = "Type here to filter dependencies..."
 
 	p := paginator.New()
 	p.Type = paginator.Dots
@@ -206,6 +268,9 @@ func NewModel(dependencies ...Dependency) tea.Model {
 		dependencies: dependencies,
 		filteredDeps: dependencies,
 		paginate:     p,
+		mainKeys:     defaultMainKeys,
+		filterKeys:   defaultFilterKeys,
+		help:         help.New(),
 	}
 
 	return model

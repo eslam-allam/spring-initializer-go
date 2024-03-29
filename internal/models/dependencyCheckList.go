@@ -1,27 +1,26 @@
 package models
 
 import (
+	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	fuzzy "github.com/lithammer/fuzzysearch/fuzzy"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 type model struct {
-	Selected      map[int]struct{}
+	Selected      map[string]struct{}
 	filter        string
-	depIds        []string
-	depGroups     []string
-	depNames      []string
-	filteredNames []string
+	dependencies  []Dependency
+	filteredDeps  []Dependency
 	filterField   textinput.Model
-	Cursor        int
-	currentPage   int
-	pageSize      int
+	paginate      paginator.Model
+	cursor        int
 	footerToggled bool
 }
 
@@ -33,44 +32,40 @@ type Dependency struct {
 
 func (m model) View() string {
 	body := m.bodyView()
+	body = lipgloss.Place(100, m.paginate.PerPage, lipgloss.Left, lipgloss.Top, body)
+	body = lipgloss.JoinVertical(lipgloss.Center, body, m.paginate.View())
 
 	footer := "press / to filter, ↑↓ to navigate"
 
 	if m.footerToggled {
 		footer = m.filterField.View()
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, body.String(), footer)
+	return lipgloss.JoinVertical(lipgloss.Left, body, footer)
 }
 
-func (m model) bodyView() strings.Builder {
+func (m model) bodyView() string {
 	body := strings.Builder{}
 
-	pageNumber := m.Cursor / m.pageSize
-	startingIndex := pageNumber * m.pageSize
-	for i, item := range m.filteredNames {
-        if i < startingIndex {
-            continue
-        }
-
-        if i > startingIndex + m.pageSize - 1 {
-            return body
-        }
-
-		if _, ok := m.Selected[i]; ok {
+	start, end := m.paginate.GetSliceBounds(len(m.filteredDeps))
+	for i, item := range m.filteredDeps[start:end] {
+		currentIndex := i + start
+		if _, ok := m.Selected[item.Id]; ok {
 			body.WriteString("[✓] ")
 		} else {
 			body.WriteString("[ ] ")
 		}
 
-		itemDisplay := item
-		if i == m.Cursor {
+		itemDisplay := item.Name
+		if currentIndex == m.cursor {
 			itemDisplay = hoverStyle.Render(itemDisplay)
 		}
 		body.WriteString(itemDisplay)
 
-		body.WriteString("\n")
+		if i != m.paginate.PerPage-1 {
+			body.WriteString("\n")
+		}
 	}
-	return body
+	return body.String()
 }
 
 func (m model) Init() tea.Cmd {
@@ -82,61 +77,100 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Is it a key press?
 	case tea.KeyMsg:
 
+		if m.footerToggled {
+
+			switch msg.String() {
+
+			case "enter":
+				m.footerToggled = false
+
+			case "esc", "ctrl+c":
+				m.footerToggled = false
+				m.filter = ""
+				m.filterField.Reset()
+				m.cursor = 0
+				m.filteredDeps = m.dependencies
+				m.paginate.SetTotalPages(len(m.filteredDeps))
+				m.paginate.Page = 0
+			}
+
+			m.filterField, _ = m.filterField.Update(msg)
+			newFilter := m.filterField.Value()
+
+			if newFilter == m.filter {
+				return m, nil
+			}
+
+			m.filter = newFilter
+
+			m.filteredDeps = filterDeps(m.dependencies, m.filter)
+			totalItems := len(m.filteredDeps)
+
+			if totalItems == 0 {
+				m.paginate.TotalPages = 1
+			} else {
+				m.paginate.SetTotalPages(len(m.filteredDeps))
+			}
+			m.paginate.Page = 0
+			m.cursor = 0
+
+			return m, nil
+		}
 		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
 		case "/":
 			m.footerToggled = !m.footerToggled
-            if m.footerToggled {
-                return m, m.filterField.Focus()
-            }
-            m.filterField.Blur()
-			return m, nil
+			if m.footerToggled {
+				return m, m.filterField.Focus()
+			}
+			m.filterField.Blur()
 
 		// These keys should exit the program.
-		case "ctrl+c":
+		case "ctrl+c", "q":
 			return m, tea.Quit
 
 		// The "up" and "k" keys move the cursor up
 		case "up", "k":
-			if m.Cursor > 0 {
-				m.Cursor--
+			if m.cursor > 0 {
+				m.cursor--
+				m.paginate.Page = m.cursor / m.paginate.PerPage
 			}
-            return m, nil
 
 		// The "down" and "j" keys move the cursor down
 		case "down", "j":
-			if m.Cursor < len(m.filteredNames)-1 {
-				m.Cursor++
+			if m.cursor < len(m.filteredDeps)-1 {
+				m.cursor++
+				m.paginate.Page = m.cursor / m.paginate.PerPage
 			}
-            return m, nil
+
+		case "left", "h":
+			m.paginate.PrevPage()
+			m.cursor = m.paginate.Page * m.paginate.PerPage
+
+		case "right", "l":
+			m.paginate.NextPage()
+			m.cursor = m.paginate.Page * m.paginate.PerPage
 
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
-
-			if _, ok := m.Selected[m.Cursor]; ok {
-				delete(m.Selected, m.Cursor)
+			currentId := m.filteredDeps[m.cursor].Id
+			if _, ok := m.Selected[currentId]; ok {
+				delete(m.Selected, currentId)
 			} else {
-				m.Selected[m.Cursor] = struct{}{}
+				m.Selected[currentId] = struct{}{}
 			}
-            return m, nil
-
-        case "esc":
-            if m.footerToggled{
-                m.footerToggled = false
-                m.filter = ""
-                m.filterField.Reset()
-                m.Cursor = 0
-                m.filteredNames = m.depNames
-            }
-		}
-
-		if m.footerToggled {
-			m.filterField, _ = m.filterField.Update(msg)
-			m.filter = m.filterField.Value()
-			m.filteredNames = fuzzy.FindFold(m.filter, m.depNames)
-			m.Cursor = 0
+			sort.Slice(m.dependencies, func(i, j int) bool {
+				if _, ok1 := m.Selected[m.dependencies[i].Id]; ok1 {
+					if _, ok2 := m.Selected[m.dependencies[j].Id]; ok2 {
+						return false
+					} else {
+						return true
+					}
+				}
+				return false
+			})
 		}
 	}
 
@@ -145,28 +179,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func filterDeps(deps []Dependency, value string) []Dependency {
+	filtered := make([]Dependency, 0)
+	for _, dep := range deps {
+		if fuzzy.MatchFold(value, dep.Name) {
+			filtered = append(filtered, dep)
+		}
+	}
+	return filtered
+}
+
 func NewModel(dependencies ...Dependency) tea.Model {
 	filterField := textinput.New()
 	filterField.Placeholder = "press esc to stop filtering"
-	depNames := make([]string, len(dependencies))
-	depIds := make([]string, len(dependencies))
-	depGroups := make([]string, len(dependencies))
 
-	for i, d := range dependencies {
-		depNames[i] = d.Name
-		depIds[i] = d.Id
-		depGroups[i] = d.GroupName
-	}
-    filterField.SetSuggestions(depNames)
+	p := paginator.New()
+	p.Type = paginator.Dots
+	p.PerPage = 10
+	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "235", Dark: "252"}).Render("•")
+	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "250", Dark: "238"}).Render("•")
+	p.SetTotalPages(len(dependencies))
 
 	model := model{
-		Selected:    make(map[int]struct{}),
-		pageSize:    5,
-		depIds:      depIds,
-		depNames:    depNames,
-		depGroups:   depGroups,
-		filterField: filterField,
-        filteredNames: depNames,
+		Selected:     make(map[string]struct{}),
+		filterField:  filterField,
+		dependencies: dependencies,
+		filteredDeps: dependencies,
+		paginate:     p,
 	}
 
 	return model

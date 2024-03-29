@@ -65,20 +65,19 @@ const (
 )
 
 type model struct {
+	dependencies   tea.Model
+	packageName    string
+	description    string
+	groupId        string
+	language       string
+	name           string
+	packaging      string
+	packagingType  string
+	version        string
+	artifactId     string
+	bootVersion    []checkListItem
+	javaVersion    []checkListItem
 	currentSection section
-
-	artifactId    string
-	description   string
-	groupId       string
-	language      string
-	name          string
-	packageName   string
-	packaging     string
-	packagingType string
-	version       string
-	bootVersion   []checkListItem
-	dependencies  tea.Model
-	javaVersion   []checkListItem
 }
 
 func initialModel() model {

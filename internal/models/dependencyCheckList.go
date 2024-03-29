@@ -178,14 +178,15 @@ func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Selected[currentId] = struct{}{}
 		}
 		sort.Slice(m.dependencies, func(i, j int) bool {
-			if _, ok1 := m.Selected[m.dependencies[i].Id]; ok1 {
-				if _, ok2 := m.Selected[m.dependencies[j].Id]; ok2 {
-					return false
-				} else {
-					return true
-				}
+			_, ok1 := m.Selected[m.dependencies[i].Id]
+			_, ok2 := m.Selected[m.dependencies[j].Id]
+			if ok1 && !ok2 {
+				return true
 			}
-			return false
+			if !ok1 && ok2 {
+				return false
+			}
+			return m.dependencies[i].Name < m.dependencies[j].Name
 		})
 	}
 	return m, nil
@@ -256,6 +257,10 @@ func filterDeps(deps []Dependency, value string) []Dependency {
 }
 
 func NewModel(dependencies ...Dependency) tea.Model {
+	sort.Slice(dependencies, func(i, j int) bool {
+		return dependencies[i].Name < dependencies[j].Name
+	})
+
 	filterField := textinput.New()
 	filterField.Placeholder = "Type here to filter dependencies..."
 

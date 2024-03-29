@@ -1,4 +1,4 @@
-package models
+package dependency
 
 import (
 	"sort"
@@ -15,18 +15,29 @@ import (
 
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-type model struct {
+type Model struct {
+	Selected      map[string]struct{}
+	help          help.Model
+	filter        string
 	mainKeys      MainKeyMap
 	filterKeys    FilterKeyMap
-	Selected      map[string]struct{}
-	filter        string
 	dependencies  []Dependency
 	filteredDeps  []Dependency
 	filterField   textinput.Model
 	paginate      paginator.Model
 	cursor        int
 	filterToggled bool
-	help          help.Model
+}
+
+func (m *Model) GetSelectedIds() []string {
+	ids := make([]string, len(m.Selected))
+	i := 0
+
+	for id := range m.Selected {
+		ids[i] = id
+		i++
+	}
+	return ids
 }
 
 type Dependency struct {
@@ -43,11 +54,10 @@ type MainKeyMap struct {
 	ToggleSelect key.Binding
 	Filter       key.Binding
 	Help         key.Binding
-	Quit         key.Binding
 }
 
 func (k MainKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help, k.Quit}
+	return []key.Binding{k.Help}
 }
 
 func (k MainKeyMap) FullHelp() [][]key.Binding {
@@ -55,7 +65,7 @@ func (k MainKeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down},
 		{k.PagePrev, k.PageNext},
 		{k.ToggleSelect, k.Help},
-		{k.Filter, k.Quit},
+		{k.Filter},
 	}
 }
 
@@ -67,7 +77,6 @@ var defaultMainKeys = MainKeyMap{
 	ToggleSelect: key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "toggle selection")),
 	Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 	Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-	Quit:         key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q/ctrl+c", "quit")),
 }
 
 type FilterKeyMap struct {
@@ -88,20 +97,23 @@ var defaultFilterKeys = FilterKeyMap{
 	Cancel: key.NewBinding(key.WithKeys("esc", "ctrl+c"), key.WithHelp("esc", "cancel")),
 }
 
-func (m model) View() string {
+func (m Model) View() string {
 	body := m.bodyView()
 	body = lipgloss.Place(100, m.paginate.PerPage, lipgloss.Left, lipgloss.Top, body)
 	body = lipgloss.JoinVertical(lipgloss.Center, body, m.paginate.View())
 
-	footer := m.help.View(m.mainKeys)
 	filter := m.filterField.View()
-	if m.filterToggled {
-		footer = m.help.View(m.filterKeys)
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, body, filter, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, body, filter)
 }
 
-func (m model) bodyView() string {
+func (m Model) Help() string {
+	if m.filterToggled {
+		return m.help.View(m.filterKeys)
+	}
+	return m.help.View(m.mainKeys)
+}
+
+func (m Model) bodyView() string {
 	body := strings.Builder{}
 
 	start, end := m.paginate.GetSliceBounds(len(m.filteredDeps))
@@ -126,11 +138,11 @@ func (m model) bodyView() string {
 	return body.String()
 }
 
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateMain(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 
 	case key.Matches(msg, m.mainKeys.Help):
@@ -141,10 +153,6 @@ func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.filterToggled {
 			return m, m.filterField.Focus()
 		}
-
-	// These keys should exit the program.
-	case key.Matches(msg, m.mainKeys.Quit):
-		return m, tea.Quit
 
 	// The "up" and "k" keys move the cursor up
 	case key.Matches(msg, m.mainKeys.Up):
@@ -192,7 +200,7 @@ func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 
@@ -205,7 +213,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func updateFilter(msg tea.KeyMsg, m model) (tea.Model, tea.Cmd) {
+func updateFilter(msg tea.KeyMsg, m Model) (Model, tea.Cmd) {
 	switch {
 
 	case key.Matches(msg, m.filterKeys.Submit):
@@ -256,7 +264,7 @@ func filterDeps(deps []Dependency, value string) []Dependency {
 	return filtered
 }
 
-func NewModel(dependencies ...Dependency) tea.Model {
+func NewModel(dependencies ...Dependency) Model {
 	sort.Slice(dependencies, func(i, j int) bool {
 		return dependencies[i].Name < dependencies[j].Name
 	})
@@ -271,7 +279,7 @@ func NewModel(dependencies ...Dependency) tea.Model {
 	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "250", Dark: "238"}).Render("•")
 	p.SetTotalPages(len(dependencies))
 
-	model := model{
+	model := Model{
 		Selected:     make(map[string]struct{}),
 		filterField:  filterField,
 		dependencies: dependencies,

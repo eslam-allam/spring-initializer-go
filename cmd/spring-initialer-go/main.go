@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	models "github.com/eslam-allam/spring-initializer-go/internal/models"
+	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
 )
 
 const springUrl = "https://start.spring.io"
@@ -60,23 +60,26 @@ type checkListGroup struct {
 
 type section int
 
+const NSECTIONS = 5
+
 const (
-	DEPENDENCIES section = iota
+	MAIN section = iota
+	DEPENDENCIES
 )
 
 type model struct {
-	dependencies   tea.Model
+	packaging      string
 	packageName    string
 	description    string
 	groupId        string
 	language       string
 	name           string
-	packaging      string
 	packagingType  string
 	version        string
 	artifactId     string
 	bootVersion    []checkListItem
 	javaVersion    []checkListItem
+	dependencies   dependency.Model
 	currentSection section
 }
 
@@ -86,7 +89,7 @@ func initialModel() model {
 		panic(err)
 	}
 	bootVersions := make([]checkListItem, len(metaData.BootVersion.Values))
-	dependencies := make([]models.Dependency, 0)
+	dependencies := make([]dependency.Dependency, 0)
 	javaVersions := make([]checkListItem, len(metaData.JavaVersion.Values))
 
 	for i, field := range metaData.BootVersion.Values {
@@ -97,7 +100,7 @@ func initialModel() model {
 	}
 	for _, dependencyGroup := range metaData.Dependencies.Values {
 		for _, groupItem := range dependencyGroup.Values {
-			dependencies = append(dependencies, models.Dependency{GroupName: dependencyGroup.Name, Id: groupItem.Id, Name: groupItem.Name})
+			dependencies = append(dependencies, dependency.Dependency{GroupName: dependencyGroup.Name, Id: groupItem.Id, Name: groupItem.Name})
 		}
 	}
 
@@ -110,7 +113,7 @@ func initialModel() model {
 
 	return model{
 		bootVersion:  bootVersions,
-		dependencies: models.NewModel(dependencies...),
+		dependencies: dependency.NewModel(dependencies...),
 		javaVersion:  javaVersions,
 	}
 }
@@ -131,11 +134,35 @@ func main() {
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
 
 func (m model) View() string {
-	return m.dependencies.View()
+	return lipgloss.JoinVertical(lipgloss.Center,
+		m.dependencies.View(),
+		fmt.Sprintf("%d", m.currentSection),
+		m.dependencies.Help())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.dependencies.Update(msg)
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "tab":
+			m.currentSection = (m.currentSection + 1) % NSECTIONS
+		case "shift+tab":
+			m.currentSection = (m.currentSection - 1 + NSECTIONS) % NSECTIONS
+
+		case "q":
+			return m, tea.Quit
+		}
+		switch m.currentSection {
+
+		case MAIN:
+
+		case DEPENDENCIES:
+			m.dependencies, cmd = m.dependencies.Update(msg)
+		}
+	}
+	return m, cmd
 }
 
 func getMeta() (springInitMeta, error) {

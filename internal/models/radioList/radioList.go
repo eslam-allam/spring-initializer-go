@@ -33,12 +33,27 @@ func (m Model) GetSelected() Item {
 	return m.choices[m.selected]
 }
 
+func (m Model) ShortHelp() []key.Binding {
+    return m.keys.ShortHelp()
+}
+func (m Model) FullHelp() [][]key.Binding {
+    return m.keys.FullHelp()
+}
+
 type KeyMap struct {
 	PREV   key.Binding
 	NEXT   key.Binding
 	SELECT key.Binding
 }
 
+func (k KeyMap) ShortHelp() []key.Binding {
+    return []key.Binding{}
+}
+ 
+func (k KeyMap) FullHelp() [][]key.Binding {
+    return [][]key.Binding{{k.PREV, k.NEXT}, {k.SELECT}}
+}
+    
 var defaultKeys = KeyMap{
 	PREV:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "previous")),
 	NEXT:   key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "next")),

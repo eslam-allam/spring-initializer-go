@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
@@ -77,14 +79,43 @@ const (
 )
 
 type model struct {
-	project           radioList.Model
-	language          radioList.Model
-	springBootVersion radioList.Model
-	packaging         radioList.Model
-	javaVersion       radioList.Model
+	help              help.Model
+	currentHelp       string
+	keys              MainKeyMap
 	metadata          metadata.Model
 	dependencies      dependency.Model
+	packaging         radioList.Model
+	javaVersion       radioList.Model
+	project           radioList.Model
+	springBootVersion radioList.Model
+	language          radioList.Model
 	currentSection    section
+	width             int
+	height            int
+}
+
+type MainKeyMap struct {
+	NEXT_SECTION     key.Binding
+	PREV_SECTION     key.Binding
+	HELP             key.Binding
+	QUIT             key.Binding
+	SectionShortKeys []key.Binding
+	SectionFullKeys  [][]key.Binding
+}
+
+func (k MainKeyMap) ShortHelp() []key.Binding {
+	return append([]key.Binding{k.HELP, k.QUIT}, k.SectionShortKeys...)
+}
+
+func (k MainKeyMap) FullHelp() [][]key.Binding {
+	return append([][]key.Binding{{k.NEXT_SECTION, k.PREV_SECTION}, {k.HELP, k.QUIT}}, k.SectionFullKeys...)
+}
+
+var defaultKeys MainKeyMap = MainKeyMap{
+	NEXT_SECTION: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next section")),
+	PREV_SECTION: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "previous section")),
+	HELP:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help")),
+	QUIT:         key.NewBinding(key.WithKeys("ctrl+q"), key.WithHelp("ctrl+q", "quit")),
 }
 
 func initialModel() model {
@@ -99,7 +130,7 @@ func initialModel() model {
 	language := make([]radioList.Item, len(metaData.Language.Values))
 	packaging := make([]radioList.Item, len(metaData.Packaging.Values))
 	metadataFields := []metaField{metaData.GroupId, metaData.ArtifactId, metaData.Name, metaData.Description, metaData.PackageName}
-    metadataFieldNames := []string{"Group", "Artifact", "Name", "Description", "Package Name"}
+	metadataFieldNames := []string{"Group", "Artifact", "Name", "Description", "Package Name"}
 	metaDisplayFields := make([]metadata.Field, len(metadataFields))
 
 	for i, field := range metadataFields {
@@ -158,6 +189,8 @@ func initialModel() model {
 		javaVersion:       radioList.New(radioList.VERTICAL, javaVersions...),
 		packaging:         radioList.New(radioList.HORIZONTAL, packaging...),
 		metadata:          metadata.New(metaDisplayFields...),
+		help:              help.New(),
+		keys:              defaultKeys,
 	}
 }
 
@@ -198,6 +231,7 @@ func (m model) iteratingRenderer() func(s string) string {
 }
 
 func (m model) View() string {
+	m.updateHelp()
 	renderer := m.iteratingRenderer()
 
 	leftSection := lipgloss.JoinVertical(lipgloss.Center,
@@ -209,7 +243,35 @@ func (m model) View() string {
 	)
 	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View()), renderer("Buttons"))
 
-	return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection))
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, docStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Center,
+			lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection),
+			m.help.View(m.keys))))
+}
+
+func (m *model) updateHelp() {
+	switch m.currentSection {
+	case PROJECT:
+		m.keys.SectionShortKeys = m.project.ShortHelp()
+		m.keys.SectionFullKeys = m.project.FullHelp()
+	case LANGUAGE:
+		m.keys.SectionShortKeys = m.language.ShortHelp()
+		m.keys.SectionFullKeys = m.language.FullHelp()
+	case SPRING_BOOT:
+		m.keys.SectionShortKeys = m.springBootVersion.ShortHelp()
+		m.keys.SectionFullKeys = m.springBootVersion.FullHelp()
+	case METADATA:
+
+	case PACKAGING:
+		m.keys.SectionShortKeys = m.packaging.ShortHelp()
+		m.keys.SectionFullKeys = m.packaging.FullHelp()
+	case JAVA:
+		m.keys.SectionShortKeys = m.javaVersion.ShortHelp()
+		m.keys.SectionFullKeys = m.javaVersion.FullHelp()
+	case DEPENDENCIES:
+		m.keys.SectionShortKeys = m.dependencies.ShortHelp()
+		m.keys.SectionFullKeys = m.dependencies.FullHelp()
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -218,6 +280,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
+		m.width, m.height = msg.Width, msg.Height
 		hs, hv := sectionStyle.GetFrameSize()
 		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
 		m.project.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
@@ -227,13 +290,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.packaging.SetSize((msg.Width-h)/4-hs, 1)
 		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "tab":
+		switch {
+		case key.Matches(msg, m.keys.NEXT_SECTION):
 			m.currentSection = (m.currentSection + 1) % NSECTIONS
-		case "shift+tab":
+		case key.Matches(msg, m.keys.PREV_SECTION):
 			m.currentSection = (m.currentSection - 1 + NSECTIONS) % NSECTIONS
-
-		case "q":
+		case key.Matches(msg, m.keys.HELP):
+			m.help.ShowAll = !m.help.ShowAll
+		case key.Matches(msg, m.keys.QUIT):
 			return m, tea.Quit
 		}
 		switch m.currentSection {

@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -17,7 +16,6 @@ var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("2
 
 type Model struct {
 	Selected      map[string]struct{}
-	help          help.Model
 	filter        string
 	mainKeys      MainKeyMap
 	filterKeys    FilterKeyMap
@@ -62,19 +60,17 @@ type MainKeyMap struct {
 	PageNext     key.Binding
 	ToggleSelect key.Binding
 	Filter       key.Binding
-	Help         key.Binding
 }
 
 func (k MainKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help}
+	return []key.Binding{}
 }
 
 func (k MainKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
 		{k.PagePrev, k.PageNext},
-		{k.ToggleSelect, k.Help},
-		{k.Filter},
+		{k.ToggleSelect, k.Filter},
 	}
 }
 
@@ -85,7 +81,6 @@ var defaultMainKeys = MainKeyMap{
 	PageNext:     key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next page")),
 	ToggleSelect: key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "toggle selection")),
 	Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
-	Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 }
 
 type FilterKeyMap struct {
@@ -94,11 +89,11 @@ type FilterKeyMap struct {
 }
 
 func (k FilterKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Submit, k.Cancel}
+	return []key.Binding{}
 }
 
 func (k FilterKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{}
+	return [][]key.Binding{{k.Submit, k.Cancel}}
 }
 
 var defaultFilterKeys = FilterKeyMap{
@@ -115,11 +110,18 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, filter)
 }
 
-func (m Model) Help() string {
+func (m Model) ShortHelp() []key.Binding {
 	if m.filterToggled {
-		return m.help.View(m.filterKeys)
+		return m.filterKeys.ShortHelp()
 	}
-	return m.help.View(m.mainKeys)
+	return m.mainKeys.ShortHelp()
+}
+
+func (m Model) FullHelp() [][]key.Binding {
+	if m.filterToggled {
+		return m.filterKeys.FullHelp()
+	}
+	return m.mainKeys.FullHelp()
 }
 
 func (m Model) bodyView() string {
@@ -153,10 +155,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) updateMain(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 
-	case key.Matches(msg, m.mainKeys.Help):
-		m.help.ShowAll = !m.help.ShowAll
 	case key.Matches(msg, m.mainKeys.Filter):
-		m.help.ShowAll = false
 		m.filterToggled = !m.filterToggled
 		if m.filterToggled {
 			return m, m.filterField.Focus()
@@ -295,7 +294,6 @@ func New(dependencies ...Dependency) Model {
 		paginate:     p,
 		mainKeys:     defaultMainKeys,
 		filterKeys:   defaultFilterKeys,
-		help:         help.New(),
 	}
 
 	return model

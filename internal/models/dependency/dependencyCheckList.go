@@ -27,14 +27,14 @@ type Model struct {
 	paginate      paginator.Model
 	cursor        int
 	filterToggled bool
-    width       int
-    height  int
+	width         int
+	height        int
 }
 
-func (m *Model) SetSize(h, v int)  {
-    m.width = h
-    m.height = v
-    m.paginate.PerPage = v - 2
+func (m *Model) SetSize(h, v int) {
+	m.width = h
+	m.height = v
+	m.paginate.PerPage = v - 2
 	m.paginate.SetTotalPages(len(m.filteredDeps))
 }
 

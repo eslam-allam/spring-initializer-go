@@ -30,6 +30,7 @@ type metaField struct {
 	Description string        `json:"description"`
 	Type        metaFieldType `json:"type"`
 	Default     string        `json:"default"`
+	Action      string        `json:"action"`
 	Values      []metaField   `json:"values"`
 }
 
@@ -66,10 +67,10 @@ const NSECTIONS = 8
 const (
 	PROJECT section = iota
 	LANGUAGE
-	SPRING_BOOT
-	METADATA
 	PACKAGING
 	JAVA
+	SPRING_BOOT
+	METADATA
 	DEPENDENCIES
 	BUTTONS
 )
@@ -92,6 +93,31 @@ func initialModel() model {
 	bootVersions := make([]radioList.Item, len(metaData.BootVersion.Values))
 	dependencies := make([]dependency.Dependency, 0)
 	javaVersions := make([]radioList.Item, len(metaData.JavaVersion.Values))
+	projects := make([]radioList.Item, len(metaData.Type.Values))
+	language := make([]radioList.Item, len(metaData.Language.Values))
+	packaging := make([]radioList.Item, len(metaData.Packaging.Values))
+
+	for i, field := range metaData.Packaging.Values {
+		packaging[i] = radioList.Item{
+			Id:   field.Id,
+			Name: field.Name,
+		}
+	}
+
+	for i, field := range metaData.Language.Values {
+		language[i] = radioList.Item{
+			Id:   field.Id,
+			Name: field.Name,
+		}
+	}
+
+	for i, field := range metaData.Type.Values {
+		projects[i] = radioList.Item{
+			Id:     field.Id,
+			Name:   field.Name,
+			Action: field.Action,
+		}
+	}
 
 	for i, field := range metaData.BootVersion.Values {
 		bootVersions[i] = radioList.Item{
@@ -113,9 +139,12 @@ func initialModel() model {
 	}
 
 	return model{
+		project:           radioList.New(radioList.VERTICAL, projects...),
+		language:          radioList.New(radioList.VERTICAL, language...),
 		springBootVersion: radioList.New(radioList.VERTICAL, bootVersions...),
 		dependencies:      dependency.NewModel(dependencies...),
-		javaVersion:       radioList.New(radioList.HORIZONTAL, javaVersions...),
+		javaVersion:       radioList.New(radioList.VERTICAL, javaVersions...),
+		packaging:         radioList.New(radioList.HORIZONTAL, packaging...),
 	}
 }
 
@@ -159,12 +188,11 @@ func (m model) View() string {
 	renderer := m.iteratingRenderer()
 
 	leftSection := lipgloss.JoinVertical(lipgloss.Center,
-		renderer("Project"),
-		renderer("Language"),
-		renderer(m.springBootVersion.View()),
+		lipgloss.JoinHorizontal(lipgloss.Center, renderer(m.project.View()),
+			lipgloss.JoinVertical(lipgloss.Center, renderer(m.language.View()), renderer(m.packaging.View()))),
+		lipgloss.JoinHorizontal(lipgloss.Center,
+			renderer(m.javaVersion.View()), renderer(m.springBootVersion.View())),
 		renderer("ProjectMetadata"),
-		lipgloss.JoinHorizontal(lipgloss.Center, renderer("Packaging"),
-			renderer(m.javaVersion.View())),
 	)
 	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View()), renderer("Buttons"))
 
@@ -179,8 +207,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := docStyle.GetFrameSize()
 		hs, hv := sectionStyle.GetFrameSize()
 		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
+		m.project.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
+		m.language.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv-3)
 		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
-		m.javaVersion.SetSize((msg.Width-h)/4-hs, 1)
+		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
+		m.packaging.SetSize((msg.Width-h)/4-hs, 1)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
@@ -193,6 +224,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch m.currentSection {
 
+		case PROJECT:
+			m.project, cmd = m.project.Update(msg)
+		case LANGUAGE:
+			m.language, cmd = m.language.Update(msg)
+		case PACKAGING:
+			m.packaging, cmd = m.packaging.Update(msg)
 		case SPRING_BOOT:
 			m.springBootVersion, cmd = m.springBootVersion.Update(msg)
 		case JAVA:

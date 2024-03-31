@@ -9,8 +9,9 @@ import (
 )
 
 type Item struct {
-	Name string
-	Id   string
+	Name   string
+	Id     string
+	Action string
 }
 
 type Model struct {
@@ -28,18 +29,18 @@ func (m *Model) SetSize(h, v int) {
 	m.width = h
 }
 
-func (m Model) GetSelected() string {
-	return m.choices[m.selected].Id
+func (m Model) GetSelected() Item {
+	return m.choices[m.selected]
 }
 
 type KeyMap struct {
-	PREV     key.Binding
+	PREV   key.Binding
 	NEXT   key.Binding
 	SELECT key.Binding
 }
 
 var defaultKeys = KeyMap{
-	PREV:     key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "previous")),
+	PREV:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "previous")),
 	NEXT:   key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "next")),
 	SELECT: key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "select")),
 }
@@ -87,7 +88,7 @@ func (m Model) View() string {
 			}
 		}
 	}
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, s.String())
+	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, s.String())
 }
 
 type direction int
@@ -98,15 +99,15 @@ const (
 )
 
 func New(d direction, choices ...Item) Model {
-    keys := defaultKeys
+	keys := defaultKeys
 
-    if d == HORIZONTAL {
-        keys.PREV = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "prev"))
-        keys.NEXT = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next"))
-    }
+	if d == HORIZONTAL {
+		keys.PREV = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "prev"))
+		keys.NEXT = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next"))
+	}
 	return Model{
-		choices: choices,
-		keys:    keys,
-        direction: d,
+		choices:   choices,
+		keys:      keys,
+		direction: d,
 	}
 }

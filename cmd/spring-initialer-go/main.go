@@ -60,11 +60,17 @@ type checkListGroup struct {
 
 type section int
 
-const NSECTIONS = 5
+const NSECTIONS = 8
 
 const (
-	MAIN section = iota
+    PROJECT section = iota
+    LANGUAGE
+    SPRING_BOOT
+    METADATA
+    PACKAGING
+    JAVA
 	DEPENDENCIES
+    BUTTONS
 )
 
 type model struct {
@@ -131,19 +137,54 @@ func main() {
 	}
 }
 
+var docStyle lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
 var hoverStyle lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
+var sectionStyle lipgloss.Style = lipgloss.NewStyle().Margin(0, 0, 0).Border(lipgloss.RoundedBorder(), true)
+var currentSectionStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
+
+func renderSection(s string, width, height int, isCurrent bool) string {
+    block := lipgloss.Place(width, height, lipgloss.Center, lipgloss.Top, s, lipgloss.WithWhitespaceChars("-"))
+
+    if isCurrent {
+        return currentSectionStyle.Render(block)
+    }
+    return sectionStyle.Render(block)
+        
+}
+
+func (m model) iteratingRenderer() func(s string, width, height int) string {
+    i := 0
+    return func(s string, width, height int) string {
+        section := renderSection(s, width, height, i == int(m.currentSection))
+        i++
+        return section
+    }
+}
 
 func (m model) View() string {
-	return lipgloss.JoinVertical(lipgloss.Center,
-		m.dependencies.View(),
-		fmt.Sprintf("%d", m.currentSection),
-		m.dependencies.Help())
+    renderer := m.iteratingRenderer()
+
+    leftSection := lipgloss.JoinVertical(lipgloss.Center,
+        renderer("Project",40, 4),
+        renderer("Language",40, 4),
+        renderer("Spring Boot",40, 4),
+        renderer("ProjectMetadata",40, 12),
+        renderer("Packaging",40, 2),
+        renderer("Java",40, 2),
+		)
+    rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View(), 20 ,20), renderer("Buttons", 10, 2))
+
+    return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        h, v := docStyle.GetFrameSize()
+        hs, hv := sectionStyle.GetFrameSize()
+        m.dependencies.SetSize((msg.Width-h)/2 - hs, ( msg.Height-v ) /2 -hv )
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
@@ -155,8 +196,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		switch m.currentSection {
-
-		case MAIN:
 
 		case DEPENDENCIES:
 			m.dependencies, cmd = m.dependencies.Update(msg)

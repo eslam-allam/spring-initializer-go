@@ -27,6 +27,14 @@ type Model struct {
 	paginate      paginator.Model
 	cursor        int
 	filterToggled bool
+    width       int
+    height  int
+}
+
+func (m *Model) SetSize(h, v int)  {
+    m.width = h
+    m.height = v
+    m.paginate.PerPage = v - 2
 }
 
 func (m *Model) GetSelectedIds() []string {
@@ -99,7 +107,7 @@ var defaultFilterKeys = FilterKeyMap{
 
 func (m Model) View() string {
 	body := m.bodyView()
-	body = lipgloss.Place(100, m.paginate.PerPage, lipgloss.Left, lipgloss.Top, body)
+	body = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, body)
 	body = lipgloss.JoinVertical(lipgloss.Center, body, m.paginate.View())
 
 	filter := m.filterField.View()
@@ -274,7 +282,7 @@ func NewModel(dependencies ...Dependency) Model {
 
 	p := paginator.New()
 	p.Type = paginator.Dots
-	p.PerPage = 10
+	p.PerPage = 20
 	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "235", Dark: "252"}).Render("•")
 	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "250", Dark: "238"}).Render("•")
 	p.SetTotalPages(len(dependencies))

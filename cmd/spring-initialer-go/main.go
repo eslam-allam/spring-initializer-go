@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
+	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
 )
 
 const springUrl = "https://start.spring.io"
@@ -63,30 +64,24 @@ type section int
 const NSECTIONS = 8
 
 const (
-    PROJECT section = iota
-    LANGUAGE
-    SPRING_BOOT
-    METADATA
-    PACKAGING
-    JAVA
+	PROJECT section = iota
+	LANGUAGE
+	SPRING_BOOT
+	METADATA
+	PACKAGING
+	JAVA
 	DEPENDENCIES
-    BUTTONS
+	BUTTONS
 )
 
 type model struct {
-	packaging      string
-	packageName    string
-	description    string
-	groupId        string
-	language       string
-	name           string
-	packagingType  string
-	version        string
-	artifactId     string
-	bootVersion    []checkListItem
-	javaVersion    []checkListItem
-	dependencies   dependency.Model
-	currentSection section
+	project           radioList.Model
+	language          radioList.Model
+	springBootVersion radioList.Model
+	packaging         radioList.Model
+	javaVersion       radioList.Model
+	dependencies      dependency.Model
+	currentSection    section
 }
 
 func initialModel() model {
@@ -94,14 +89,14 @@ func initialModel() model {
 	if err != nil {
 		panic(err)
 	}
-	bootVersions := make([]checkListItem, len(metaData.BootVersion.Values))
+	bootVersions := make([]radioList.Item, len(metaData.BootVersion.Values))
 	dependencies := make([]dependency.Dependency, 0)
-	javaVersions := make([]checkListItem, len(metaData.JavaVersion.Values))
+	javaVersions := make([]radioList.Item, len(metaData.JavaVersion.Values))
 
 	for i, field := range metaData.BootVersion.Values {
-		bootVersions[i] = checkListItem{
-			id:   field.Id,
-			name: field.Name,
+		bootVersions[i] = radioList.Item{
+			Id:   field.Id,
+			Name: field.Name,
 		}
 	}
 	for _, dependencyGroup := range metaData.Dependencies.Values {
@@ -111,16 +106,16 @@ func initialModel() model {
 	}
 
 	for i, version := range metaData.JavaVersion.Values {
-		javaVersions[i] = checkListItem{
-			id:   version.Id,
-			name: version.Name,
+		javaVersions[i] = radioList.Item{
+			Id:   version.Id,
+			Name: version.Name,
 		}
 	}
 
 	return model{
-		bootVersion:  bootVersions,
-		dependencies: dependency.NewModel(dependencies...),
-		javaVersion:  javaVersions,
+		springBootVersion: radioList.New(radioList.VERTICAL, bootVersions...),
+		dependencies:      dependency.NewModel(dependencies...),
+		javaVersion:       radioList.New(radioList.HORIZONTAL, javaVersions...),
 	}
 }
 
@@ -137,54 +132,55 @@ func main() {
 	}
 }
 
-var docStyle lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
-var hoverStyle lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
-var sectionStyle lipgloss.Style = lipgloss.NewStyle().Margin(0, 0, 0).Border(lipgloss.RoundedBorder(), true)
-var currentSectionStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
+var (
+	docStyle            lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
+	hoverStyle          lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
+	sectionStyle        lipgloss.Style = lipgloss.NewStyle().Margin(0, 0, 0).Border(lipgloss.RoundedBorder(), true)
+	currentSectionStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
+)
 
-func renderSection(s string, width, height int, isCurrent bool) string {
-    block := lipgloss.Place(width, height, lipgloss.Center, lipgloss.Top, s, lipgloss.WithWhitespaceChars("-"))
-
-    if isCurrent {
-        return currentSectionStyle.Render(block)
-    }
-    return sectionStyle.Render(block)
-        
+func renderSection(s string, isCurrent bool) string {
+	if isCurrent {
+		return currentSectionStyle.Render(s)
+	}
+	return sectionStyle.Render(s)
 }
 
-func (m model) iteratingRenderer() func(s string, width, height int) string {
-    i := 0
-    return func(s string, width, height int) string {
-        section := renderSection(s, width, height, i == int(m.currentSection))
-        i++
-        return section
-    }
+func (m model) iteratingRenderer() func(s string) string {
+	i := 0
+	return func(s string) string {
+		section := renderSection(s, i == int(m.currentSection))
+		i++
+		return section
+	}
 }
 
 func (m model) View() string {
-    renderer := m.iteratingRenderer()
+	renderer := m.iteratingRenderer()
 
-    leftSection := lipgloss.JoinVertical(lipgloss.Center,
-        renderer("Project",40, 4),
-        renderer("Language",40, 4),
-        renderer("Spring Boot",40, 4),
-        renderer("ProjectMetadata",40, 12),
-        renderer("Packaging",40, 2),
-        renderer("Java",40, 2),
-		)
-    rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View(), 20 ,20), renderer("Buttons", 10, 2))
+	leftSection := lipgloss.JoinVertical(lipgloss.Center,
+		renderer("Project"),
+		renderer("Language"),
+		renderer(m.springBootVersion.View()),
+		renderer("ProjectMetadata"),
+		lipgloss.JoinHorizontal(lipgloss.Center, renderer("Packaging"),
+			renderer(m.javaVersion.View())),
+	)
+	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View()), renderer("Buttons"))
 
-    return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection))
+	return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-    case tea.WindowSizeMsg:
-        h, v := docStyle.GetFrameSize()
-        hs, hv := sectionStyle.GetFrameSize()
-        m.dependencies.SetSize((msg.Width-h)/2 - hs, ( msg.Height-v ) /2 -hv )
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		hs, hv := sectionStyle.GetFrameSize()
+		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
+		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
+		m.javaVersion.SetSize((msg.Width-h)/4-hs, 1)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
@@ -197,6 +193,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch m.currentSection {
 
+		case SPRING_BOOT:
+			m.springBootVersion, cmd = m.springBootVersion.Update(msg)
+		case JAVA:
+			m.javaVersion, cmd = m.javaVersion.Update(msg)
 		case DEPENDENCIES:
 			m.dependencies, cmd = m.dependencies.Update(msg)
 		}

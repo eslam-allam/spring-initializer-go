@@ -35,6 +35,7 @@ func (m *Model) SetSize(h, v int)  {
     m.width = h
     m.height = v
     m.paginate.PerPage = v - 2
+	m.paginate.SetTotalPages(len(m.filteredDeps))
 }
 
 func (m *Model) GetSelectedIds() []string {
@@ -123,7 +124,6 @@ func (m Model) Help() string {
 
 func (m Model) bodyView() string {
 	body := strings.Builder{}
-
 	start, end := m.paginate.GetSliceBounds(len(m.filteredDeps))
 	for i, item := range m.filteredDeps[start:end] {
 		currentIndex := i + start
@@ -143,7 +143,7 @@ func (m Model) bodyView() string {
 			body.WriteString("\n")
 		}
 	}
-	return body.String()
+	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, body.String())
 }
 
 func (m Model) Init() tea.Cmd {

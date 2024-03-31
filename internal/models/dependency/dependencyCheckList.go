@@ -272,7 +272,7 @@ func filterDeps(deps []Dependency, value string) []Dependency {
 	return filtered
 }
 
-func NewModel(dependencies ...Dependency) Model {
+func New(dependencies ...Dependency) Model {
 	sort.Slice(dependencies, func(i, j int) bool {
 		return dependencies[i].Name < dependencies[j].Name
 	})

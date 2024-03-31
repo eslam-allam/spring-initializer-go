@@ -208,7 +208,7 @@ func main() {
 }
 
 var (
-	docStyle          lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
+	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
 	hoverStyle        lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
 	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.RoundedBorder(), true, true, false).
 				PaddingBottom(1).Bold(true)
@@ -250,8 +250,8 @@ func (m model) View() string {
 		renderer("Project Metadata", m.metadata.View()),
 	)
 	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", "Buttons"))
-
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, docStyle.Render(
+    h,v := docStyle.GetFrameSize()
+	return docStyle.Render(lipgloss.Place(m.width-h, m.height-v, lipgloss.Center, lipgloss.Center, 
 		lipgloss.JoinVertical(lipgloss.Center,
 			lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection),
 			m.help.View(m.keys))))

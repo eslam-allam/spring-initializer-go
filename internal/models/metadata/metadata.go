@@ -49,6 +49,20 @@ func (m Model) GetValues() []FieldValue {
 	return values
 }
 
+func (m Model) ShortHelp() []key.Binding {
+    if m.typing {
+        return m.fieldKeys.ShortHelp()
+    }
+    return m.keys.ShortHelp()
+}
+
+func (m Model) FullHelp() [][]key.Binding {
+    if m.typing {
+        return m.fieldKeys.FullHelp()
+    }
+    return m.keys.FullHelp()
+}
+
 type KeyMap struct {
 	PREV  key.Binding
 	NEXT  key.Binding
@@ -56,9 +70,26 @@ type KeyMap struct {
 	CLEAR key.Binding
 }
 
+func (k KeyMap) ShortHelp() []key.Binding {
+    return []key.Binding{}
+}
+
+func (k KeyMap) FullHelp() [][]key.Binding {
+    return [][]key.Binding{{k.PREV, k.NEXT}, {k.FOCUS, k.CLEAR}}
+    
+}
+
 type InputKeyMap struct {
 	SUBMIT key.Binding
 	CANCEL key.Binding
+}
+
+func (k InputKeyMap) ShortHelp() []key.Binding {
+    return []key.Binding{}
+}
+
+func (k InputKeyMap) FullHelp() [][]key.Binding {
+    return [][]key.Binding{{k.SUBMIT, k.CANCEL}}
 }
 
 var DefaultKeyMap = KeyMap{

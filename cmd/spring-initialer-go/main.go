@@ -261,7 +261,8 @@ func (m *model) updateHelp() {
 		m.keys.SectionShortKeys = m.springBootVersion.ShortHelp()
 		m.keys.SectionFullKeys = m.springBootVersion.FullHelp()
 	case METADATA:
-
+		m.keys.SectionShortKeys = m.metadata.ShortHelp()
+		m.keys.SectionFullKeys = m.metadata.FullHelp()
 	case PACKAGING:
 		m.keys.SectionShortKeys = m.packaging.ShortHelp()
 		m.keys.SectionFullKeys = m.packaging.FullHelp()

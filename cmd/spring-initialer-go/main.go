@@ -200,7 +200,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
@@ -208,23 +208,31 @@ func main() {
 }
 
 var (
-	docStyle            lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
-	hoverStyle          lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
-	sectionStyle        lipgloss.Style = lipgloss.NewStyle().Margin(0, 0, 0).Border(lipgloss.RoundedBorder(), true)
-	currentSectionStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
+	docStyle          lipgloss.Style = lipgloss.NewStyle().Margin(2, 1)
+	hoverStyle        lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
+	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.RoundedBorder(), true, true, false).
+				PaddingBottom(1).Bold(true)
+	currentSectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionTitleStyle).BorderForeground(lipgloss.Color("205")).PaddingBottom(1)
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), false, true, true)
+	currentSectionStyle      lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
 )
 
-func renderSection(s string, isCurrent bool) string {
+func renderSection(title, s string, isCurrent bool) string {
+	section := sectionStyle.Render(s)
+	paddedTitle := lipgloss.PlaceHorizontal(lipgloss.Width(section)-2, lipgloss.Left, title)
+	sectionTitle := sectionTitleStyle.Render(paddedTitle)
 	if isCurrent {
-		return currentSectionStyle.Render(s)
+		section = currentSectionStyle.Render(s)
+		sectionTitle = currentSectionTitleStyle.Render(paddedTitle)
 	}
-	return sectionStyle.Render(s)
+
+	return lipgloss.JoinVertical(lipgloss.Left, sectionTitle, section)
 }
 
-func (m model) iteratingRenderer() func(s string) string {
+func (m model) iteratingRenderer() func(title, s string) string {
 	i := 0
-	return func(s string) string {
-		section := renderSection(s, i == int(m.currentSection))
+	return func(title, s string) string {
+		section := renderSection(title, s, i == int(m.currentSection))
 		i++
 		return section
 	}
@@ -235,13 +243,13 @@ func (m model) View() string {
 	renderer := m.iteratingRenderer()
 
 	leftSection := lipgloss.JoinVertical(lipgloss.Center,
-		lipgloss.JoinHorizontal(lipgloss.Center, renderer(m.project.View()),
-			lipgloss.JoinVertical(lipgloss.Center, renderer(m.language.View()), renderer(m.packaging.View()))),
+		lipgloss.JoinHorizontal(lipgloss.Center, renderer("Project", m.project.View()),
+			lipgloss.JoinVertical(lipgloss.Center, renderer("Language", m.language.View()), renderer("Packaging", m.packaging.View()))),
 		lipgloss.JoinHorizontal(lipgloss.Center,
-			renderer(m.javaVersion.View()), renderer(m.springBootVersion.View())),
-		renderer(m.metadata.View()),
+			renderer("Java", m.javaVersion.View()), renderer("Spring Boot", m.springBootVersion.View())),
+		renderer("Project Metadata", m.metadata.View()),
 	)
-	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer(m.dependencies.View()), renderer("Buttons"))
+	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", "Buttons"))
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, docStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Center,
@@ -283,13 +291,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := docStyle.GetFrameSize()
 		m.width, m.height = msg.Width, msg.Height
 		hs, hv := sectionStyle.GetFrameSize()
-		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
-		m.project.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
-		m.language.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv-3)
-		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
-		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/5-hv)
+		sectionMinHeight := sectionStyle.GetVerticalFrameSize() + sectionTitleStyle.GetVerticalFrameSize()
+		m.project.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv-sectionMinHeight+4)
+		m.language.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv-sectionMinHeight-1)
 		m.packaging.SetSize((msg.Width-h)/4-hs, 1)
-		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2-hv)
+		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
+		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
+		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-((msg.Height-v)/4+sectionStyle.GetVerticalFrameSize()+sectionTitleStyle.GetVerticalFrameSize())*3)-hv-2)
+		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2+1)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):

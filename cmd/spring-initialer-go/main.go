@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/eslam-allam/spring-initializer-go/internal/models/buttons"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
@@ -92,6 +93,7 @@ type model struct {
 	currentSection    section
 	width             int
 	height            int
+	buttons           buttons.Model
 }
 
 type MainKeyMap struct {
@@ -191,6 +193,10 @@ func initialModel() model {
 		metadata:          metadata.New(metaDisplayFields...),
 		help:              help.New(),
 		keys:              defaultKeys,
+		buttons: buttons.New([]buttons.Button{
+			{Name: "Download", Action: buttons.DOWNLOAD},
+			{Name: "Download and Extract", Action: buttons.DOWNLOAD_EXTRACT},
+		}...),
 	}
 }
 
@@ -249,9 +255,9 @@ func (m model) View() string {
 			renderer("Java", m.javaVersion.View()), renderer("Spring Boot", m.springBootVersion.View())),
 		renderer("Project Metadata", m.metadata.View()),
 	)
-	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", "Buttons"))
-    h,v := docStyle.GetFrameSize()
-	return docStyle.Render(lipgloss.Place(m.width-h, m.height-v, lipgloss.Center, lipgloss.Center, 
+	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", m.buttons.View()))
+	h, v := docStyle.GetFrameSize()
+	return docStyle.Render(lipgloss.Place(m.width-h, m.height-v, lipgloss.Center, lipgloss.Center,
 		lipgloss.JoinVertical(lipgloss.Center,
 			lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection),
 			m.help.View(m.keys))))
@@ -280,6 +286,9 @@ func (m *model) updateHelp() {
 	case DEPENDENCIES:
 		m.keys.SectionShortKeys = m.dependencies.ShortHelp()
 		m.keys.SectionFullKeys = m.dependencies.FullHelp()
+    case BUTTONS:
+		m.keys.SectionShortKeys = m.buttons.ShortHelp()
+		m.keys.SectionFullKeys = m.buttons.FullHelp()
 	}
 }
 
@@ -298,7 +307,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
 		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
 		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-((msg.Height-v)/4+sectionStyle.GetVerticalFrameSize()+sectionTitleStyle.GetVerticalFrameSize())*3)-hv-2)
-		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)/2+1)
+		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v) - 17)
+        m.buttons.SetSize((msg.Width-h)/2-hs, 3)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):
@@ -326,6 +336,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.metadata, cmd = m.metadata.Update(msg)
 		case DEPENDENCIES:
 			m.dependencies, cmd = m.dependencies.Update(msg)
+        case BUTTONS:
+            m.buttons, cmd = m.buttons.Update(msg)
 		}
 	}
 	return m, cmd

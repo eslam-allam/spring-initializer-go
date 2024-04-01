@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -373,7 +374,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case buttons.DOWNLOAD:
 			cmd = func() tea.Msg {
 				url, _ := m.generateDownloadRequest()
-				err := downloadGeneratedZip(url.String(), "/home/eslamallam/personal_projects/go/spring-initializer-go/downloads/something.zip")
+
+				cwd, err := os.Getwd()
+				if err != nil {
+					return buttons.ACTION_FAILED
+				}
+
+				err = downloadGeneratedZip(url.String(), path.Join(cwd, path.Base(url.Path)))
 				if err != nil {
 					return buttons.ACTION_FAILED
 				}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/buttons"
@@ -361,13 +362,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 
+	case spinner.TickMsg:
+		m.buttons, cmd = m.buttons.Update(msg)
+
+	case buttons.ActionState:
+		m.buttons, cmd = m.buttons.Update(msg)
+
 	case buttons.Action:
 		switch msg {
 		case buttons.DOWNLOAD:
-			url, _ := m.generateDownloadRequest()
-			err := downloadGeneratedZip(url.String(), "/home/eslamallam/personal_projects/go/spring-initializer-go/downloads/something.zip")
-			if err != nil {
-				fmt.Println(err)
+			cmd = func() tea.Msg {
+				url, _ := m.generateDownloadRequest()
+				err := downloadGeneratedZip(url.String(), "/home/eslamallam/personal_projects/go/spring-initializer-go/downloads/something.zip")
+				if err != nil {
+					return buttons.ACTION_FAILED
+				}
+				return buttons.ACTION_SUCCESS
 			}
 		case buttons.DOWNLOAD_EXTRACT:
 		}

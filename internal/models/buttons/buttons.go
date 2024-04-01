@@ -1,7 +1,10 @@
 package buttons
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -11,6 +14,15 @@ type Action int
 const (
 	DOWNLOAD Action = iota
 	DOWNLOAD_EXTRACT
+)
+
+type ActionState int
+
+const (
+	ACTION_IDOL ActionState = iota
+	ACTION_SUCCESS
+	ACTION_FAILED
+	ACTION_RESET
 )
 
 var (
@@ -28,11 +40,15 @@ type Button struct {
 }
 
 type Model struct {
-	keys    KeyMap
-	buttons []Button
-	cursor  int
-	width   int
-	height  int
+	keys        KeyMap
+	buttons     []Button
+	cursor      int
+	width       int
+	height      int
+	spinner     spinner.Model
+	inAction    bool
+	actionIndex int
+	actionState ActionState
 }
 
 func (m Model) ShortHelp() []key.Binding {
@@ -58,32 +74,67 @@ var (
 
 func (m Model) View() string {
 	var s string
+	mCurrentButtonStyle := currentButtonStyle.Copy()
 
-	for i, b := range m.buttons {
-		buttonDisplay := buttonStyle.Render(b.Name)
+	switch m.actionState {
+	case ACTION_SUCCESS:
+		mCurrentButtonStyle.BorderForeground(lipgloss.Color("10")).Foreground(lipgloss.Color("10"))
+	case ACTION_FAILED:
 
-		if i == m.cursor {
-			buttonDisplay = currentButtonStyle.Render(b.Name)
-		}
+		mCurrentButtonStyle.BorderForeground(lipgloss.Color("#FF0000")).Foreground(lipgloss.Color("#FF0000"))
 
-		if i == 0 {
-			s = buttonDisplay
-		} else {
-			s = lipgloss.JoinHorizontal(lipgloss.Left, s, buttonDisplay)
+	}
+
+	if m.inAction {
+		s = lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), "Downloading...")
+	} else {
+		for i, b := range m.buttons {
+			buttonDisplay := buttonStyle.Render(b.Name)
+
+			if i == m.cursor {
+				buttonDisplay = mCurrentButtonStyle.Render(b.Name)
+			}
+
+			if i == 0 {
+				s = buttonDisplay
+			} else {
+				s = lipgloss.JoinHorizontal(lipgloss.Left, s, buttonDisplay)
+			}
 		}
 	}
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Center, s)
+	return lipgloss.Place(m.width-1, m.height, lipgloss.Left, lipgloss.Center, s)
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+
+	case ActionState:
+		m.inAction = false
+		m.actionState = msg
+		switch msg {
+		case ACTION_SUCCESS, ACTION_FAILED:
+			cmd = func() tea.Msg {
+				time.Sleep(2 * time.Second)
+				return ACTION_RESET
+			}
+		case ACTION_RESET:
+			m.actionState = ACTION_IDOL
+		}
+	case spinner.TickMsg:
+		if m.inAction {
+			m.spinner, cmd = m.spinner.Update(msg)
+		}
 	case tea.KeyMsg:
+		if m.inAction {
+			return m, cmd
+		}
+		m.actionState = ACTION_IDOL
 		switch {
 
 		case key.Matches(msg, m.keys.NEXT):
-			if m.cursor < len(m.buttons) {
+			if m.cursor < len(m.buttons)-1 {
 				m.cursor++
 			}
 		case key.Matches(msg, m.keys.PREV):
@@ -91,7 +142,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.cursor--
 			}
 		case key.Matches(msg, m.keys.SUBMIT):
-			cmd = getCmd(m.buttons[m.cursor].Action)
+			cmd = tea.Batch(getCmd(m.buttons[m.cursor].Action), m.spinner.Tick)
+			m.inAction = true
+			m.actionIndex = m.cursor
 		}
 	}
 	return m, cmd
@@ -132,5 +185,6 @@ func New(buttons ...Button) Model {
 	return Model{
 		keys:    defaultKeyMap,
 		buttons: buttons,
+		spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
 	}
 }

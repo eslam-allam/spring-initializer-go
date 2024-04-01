@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -358,6 +360,42 @@ func downloadGeneratedZip(url string, filepath string) error {
 	return nil
 }
 
+func unzipFile(zipFile, destDir string) error {
+	// Open the zip file for reading
+	r, err := zip.OpenReader(zipFile)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	// Create the destination directory if it doesn't exist
+	if _, err := os.Stat(destDir); os.IsNotExist(err) {
+		os.MkdirAll(destDir, os.ModePerm)
+	}
+	// Extract each file from the zip archive
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+		path := filepath.Join(destDir, f.Name)
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(path, os.ModePerm)
+		} else {
+			outFile, err := os.Create(path)
+			if err != nil {
+				return err
+			}
+			defer outFile.Close()
+			_, err = io.Copy(outFile, rc)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -387,6 +425,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return buttons.ACTION_SUCCESS
 			}
 		case buttons.DOWNLOAD_EXTRACT:
+			cmd = func() tea.Msg {
+				url, _ := m.generateDownloadRequest()
+
+				cwd, err := os.Getwd()
+				if err != nil {
+					return buttons.ACTION_FAILED
+				}
+
+				base := path.Base(url.Path)
+				assetPath := path.Join(cwd, base)
+				err = downloadGeneratedZip(url.String(), assetPath)
+				if err != nil {
+					return buttons.ACTION_FAILED
+				}
+
+				if strings.HasSuffix(base, "zip") {
+					err = unzipFile(assetPath, cwd)
+					if err != nil {
+						return buttons.ACTION_FAILED
+					}
+					os.Remove(assetPath)
+				}
+
+				return buttons.ACTION_SUCCESS
+			}
 		}
 
 	case tea.WindowSizeMsg:

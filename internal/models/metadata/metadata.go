@@ -35,32 +35,36 @@ func (m *Model) SetSize(h, v int) {
 
 type FieldValue struct {
 	Id    string
-	value string
+	Value string
 }
 
 func (m Model) GetValues() []FieldValue {
 	values := make([]FieldValue, len(m.fields))
 	for i, field := range m.fields {
+		value := field.inputLastValue
+		if value == "" {
+			value = field.Default
+		}
 		values[i] = FieldValue{
 			Id:    field.Id,
-			value: field.inputLastValue,
+			Value: value,
 		}
 	}
 	return values
 }
 
 func (m Model) ShortHelp() []key.Binding {
-    if m.typing {
-        return m.fieldKeys.ShortHelp()
-    }
-    return m.keys.ShortHelp()
+	if m.typing {
+		return m.fieldKeys.ShortHelp()
+	}
+	return m.keys.ShortHelp()
 }
 
 func (m Model) FullHelp() [][]key.Binding {
-    if m.typing {
-        return m.fieldKeys.FullHelp()
-    }
-    return m.keys.FullHelp()
+	if m.typing {
+		return m.fieldKeys.FullHelp()
+	}
+	return m.keys.FullHelp()
 }
 
 type KeyMap struct {
@@ -71,12 +75,11 @@ type KeyMap struct {
 }
 
 func (k KeyMap) ShortHelp() []key.Binding {
-    return []key.Binding{}
+	return []key.Binding{}
 }
 
 func (k KeyMap) FullHelp() [][]key.Binding {
-    return [][]key.Binding{{k.PREV, k.NEXT}, {k.FOCUS, k.CLEAR}}
-    
+	return [][]key.Binding{{k.PREV, k.NEXT}, {k.FOCUS, k.CLEAR}}
 }
 
 type InputKeyMap struct {
@@ -85,11 +88,11 @@ type InputKeyMap struct {
 }
 
 func (k InputKeyMap) ShortHelp() []key.Binding {
-    return []key.Binding{}
+	return []key.Binding{}
 }
 
 func (k InputKeyMap) FullHelp() [][]key.Binding {
-    return [][]key.Binding{{k.SUBMIT, k.CANCEL}}
+	return [][]key.Binding{{k.SUBMIT, k.CANCEL}}
 }
 
 var DefaultKeyMap = KeyMap{
@@ -135,7 +138,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			case key.Matches(msg, m.keys.CLEAR):
 				m.fields[m.cursor].input.Reset()
-                m.fields[m.cursor].inputLastValue = ""
+				m.fields[m.cursor].inputLastValue = ""
 			case key.Matches(msg, m.keys.FOCUS):
 				cmd = m.fields[m.cursor].input.Focus()
 				m.typing = true
@@ -177,8 +180,8 @@ func New(fields ...Field) Model {
 	}
 
 	return Model{
-		fields: newFields,
-		keys:   DefaultKeyMap,
-        fieldKeys: DefaultInputKeyMap,
+		fields:    newFields,
+		keys:      DefaultKeyMap,
+		fieldKeys: DefaultInputKeyMap,
 	}
 }

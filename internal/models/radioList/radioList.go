@@ -113,9 +113,9 @@ const (
 	VERTICAL
 )
 
+
 func New(d direction, choices ...Item) Model {
 	keys := defaultKeys
-
 	if d == HORIZONTAL {
 		keys.PREV = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "prev"))
 		keys.NEXT = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next"))

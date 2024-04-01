@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -132,12 +134,13 @@ func initialModel() model {
 	language := make([]radioList.Item, len(metaData.Language.Values))
 	packaging := make([]radioList.Item, len(metaData.Packaging.Values))
 	metadataFields := []metaField{metaData.GroupId, metaData.ArtifactId, metaData.Name, metaData.Description, metaData.PackageName}
+	metadataFieldIds := []string{"groupId", "artifactId", "name", "description", "packageName"}
 	metadataFieldNames := []string{"Group", "Artifact", "Name", "Description", "Package Name"}
 	metaDisplayFields := make([]metadata.Field, len(metadataFields))
 
 	for i, field := range metadataFields {
 		metaDisplayFields[i] = metadata.Field{
-			Id:      field.Id,
+			Id:      metadataFieldIds[i],
 			Name:    metadataFieldNames[i],
 			Default: field.Default,
 		}
@@ -166,7 +169,7 @@ func initialModel() model {
 
 	for i, field := range metaData.BootVersion.Values {
 		bootVersions[i] = radioList.Item{
-			Id:   field.Id,
+			Id:   sanitizeId(field.Name),
 			Name: field.Name,
 		}
 	}
@@ -198,6 +201,15 @@ func initialModel() model {
 			{Name: "Download and Extract", Action: buttons.DOWNLOAD_EXTRACT},
 		}...),
 	}
+}
+
+func sanitizeId(s string) string {
+	sanitized := strings.TrimSpace(s)
+	sanitized = strings.ReplaceAll(sanitized, " ", "-")
+	sanitized = strings.ReplaceAll(sanitized, "(", "")
+	sanitized = strings.ReplaceAll(sanitized, ")", "")
+
+	return sanitized
 }
 
 func (m model) Init() tea.Cmd {
@@ -286,16 +298,80 @@ func (m *model) updateHelp() {
 	case DEPENDENCIES:
 		m.keys.SectionShortKeys = m.dependencies.ShortHelp()
 		m.keys.SectionFullKeys = m.dependencies.FullHelp()
-    case BUTTONS:
+	case BUTTONS:
 		m.keys.SectionShortKeys = m.buttons.ShortHelp()
 		m.keys.SectionFullKeys = m.buttons.FullHelp()
 	}
+}
+
+func (m model) generateDownloadRequest() (*url.URL, error) {
+	form := url.Values{}
+
+	for _, m := range m.metadata.GetValues() {
+		form.Add(m.Id, m.Value)
+	}
+
+	form.Add("type", m.project.GetSelected().Id)
+	form.Add("language", m.language.GetSelected().Id)
+	form.Add("bootVersion", m.springBootVersion.GetSelected().Id)
+	form.Add("packaging", m.packaging.GetSelected().Id)
+	form.Add("javaVersion", m.javaVersion.GetSelected().Id)
+
+	for _, d := range m.dependencies.GetSelectedIds() {
+		form.Add("dependencies", d)
+	}
+
+	url, error := url.Parse(fmt.Sprintf("%s?%s", springUrl, form.Encode()))
+
+	if error != nil {
+		return url, error
+	}
+
+	url = url.JoinPath(m.project.GetSelected().Action)
+
+	return url, nil
+}
+
+func downloadGeneratedZip(url string, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("error downloading file: %s, %s", resp.Status, body)
+	}
+	defer resp.Body.Close()
+	// Create the output file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	// Copy the response body to the output file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+
+	case buttons.Action:
+		switch msg {
+		case buttons.DOWNLOAD:
+			url, _ := m.generateDownloadRequest()
+			err := downloadGeneratedZip(url.String(), "/home/eslamallam/personal_projects/go/spring-initializer-go/downloads/something.zip")
+			if err != nil {
+				fmt.Println(err)
+			}
+		case buttons.DOWNLOAD_EXTRACT:
+		}
+
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.width, m.height = msg.Width, msg.Height
@@ -307,8 +383,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
 		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
 		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-((msg.Height-v)/4+sectionStyle.GetVerticalFrameSize()+sectionTitleStyle.GetVerticalFrameSize())*3)-hv-2)
-		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v) - 17)
-        m.buttons.SetSize((msg.Width-h)/2-hs, 3)
+		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)-17)
+		m.buttons.SetSize((msg.Width-h)/2-hs, 3)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):
@@ -336,8 +412,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.metadata, cmd = m.metadata.Update(msg)
 		case DEPENDENCIES:
 			m.dependencies, cmd = m.dependencies.Update(msg)
-        case BUTTONS:
-            m.buttons, cmd = m.buttons.Update(msg)
+		case BUTTONS:
+			m.buttons, cmd = m.buttons.Update(msg)
 		}
 	}
 	return m, cmd

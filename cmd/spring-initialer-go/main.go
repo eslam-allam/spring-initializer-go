@@ -240,15 +240,15 @@ var (
 	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
 	hoverStyle        lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
 	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
-				PaddingBottom(1).Bold(true)
-	currentSectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionTitleStyle).BorderForeground(lipgloss.Color("205")).PaddingBottom(1)
-	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true)
-	currentSectionStyle      lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
+				PaddingBottom(1).Bold(true).PaddingLeft(1)
+	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color("205"))
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).PaddingLeft(1)
+	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color("205"))
 )
 
 func renderSection(title, s string, isCurrent bool) string {
 	section := sectionStyle.Render(s)
-	paddedTitle := lipgloss.PlaceHorizontal(lipgloss.Width(section)-2, lipgloss.Left, title)
+	paddedTitle := lipgloss.PlaceHorizontal(lipgloss.Width(section)-3, lipgloss.Left, title)
 	sectionTitle := sectionTitleStyle.Render(paddedTitle)
 	if isCurrent {
 		section = currentSectionStyle.Render(s)
@@ -500,8 +500,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.springBootVersion.SetSize(cw, cmv - 5 - pv)
 		m.javaVersion.SetSize(cw, cmv - 5 - pv)
         
-        c2w, _ := cellDimentsionCalc(2, 3, 0.5, 0.25, true)
-		m.metadata.SetSize(c2w, 5)
+        c2w, _ := cellDimentsionCalc(2, 3, 0.5, 0.25, false, false)
+		m.metadata.SetSize(cw * 2 + hs - 1, 5)
 
 		m.dependencies.SetSize(c2w, pv + (cmv - 5 - pv) + 2)
 		m.buttons.SetSize(c2w+1, 5)

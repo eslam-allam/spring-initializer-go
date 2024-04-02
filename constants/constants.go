@@ -1,8 +1,11 @@
 package constants
 
 const (
-    MainColour string = "#ff5faf"
-    SecondaryColour string = "#00ab41"
+    HighlightColour string = "#BAACBD"
+    MainColour string = "#495867"
+    SecondaryColour string = "#7ae878"
+    SuccessMessageColour string = "#7ae878"
+    FailureMessageColour string = "#f84841"
 )
 
 const (

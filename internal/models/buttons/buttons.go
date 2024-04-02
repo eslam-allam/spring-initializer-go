@@ -69,8 +69,8 @@ var (
 	currentButtonStyle lipgloss.Style = lipgloss.NewStyle().Inherit(buttonStyle).Margin(0, 1).
 				Padding(0, 1).
 				BorderForeground(lipgloss.Color(constants.SecondaryColour)).Foreground(lipgloss.Color(constants.SecondaryColour))
-	successMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7ae878"))
-	failureMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#f84841"))
+	successMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SuccessMessageColour))
+	failureMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.FailureMessageColour))
 )
 
 func (m Model) View() string {

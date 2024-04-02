@@ -240,10 +240,11 @@ func main() {
 var (
 	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
 	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
-				PaddingBottom(1).Bold(true).PaddingLeft(1)
-	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.MainColour))
-	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).PaddingLeft(1)
-	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.MainColour))
+				PaddingBottom(1).Bold(true).PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).
+        PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
 )
 
 func renderSection(title, s string, isCurrent bool) string {

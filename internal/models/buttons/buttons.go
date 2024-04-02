@@ -71,36 +71,37 @@ var (
 	currentButtonStyle lipgloss.Style = lipgloss.NewStyle().Inherit(buttonStyle).Margin(0, 1).
 				Padding(0, 1).
 				BorderForeground(lipgloss.Color(constants.SecondaryColour)).Foreground(lipgloss.Color(constants.SecondaryColour))
+	successMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7ae878"))
+	failureMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
 )
 
 func (m Model) View() string {
 	var s string
-	mCurrentButtonStyle := currentButtonStyle.Copy()
 
 	switch m.actionState {
 	case ACTION_SUCCESS:
-		mCurrentButtonStyle.BorderForeground(lipgloss.Color("10")).Foreground(lipgloss.Color("10"))
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, successMessageStyle.Render("Download Successful!"))
 	case ACTION_FAILED:
 
-		mCurrentButtonStyle.BorderForeground(lipgloss.Color("#FF0000")).Foreground(lipgloss.Color("#FF0000"))
-
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, failureMessageStyle.Render("Download Failed, check logs for more info."))
 	}
 
 	if m.inAction {
-		s = lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), "Downloading...")
-	} else {
-		for i, b := range m.buttons {
-			buttonDisplay := buttonStyle.Render(b.Name)
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), "Downloading..."))
+	}
 
-			if i == m.cursor {
-				buttonDisplay = mCurrentButtonStyle.Render(b.Name)
-			}
+	for i, b := range m.buttons {
+		buttonDisplay := buttonStyle.Render(b.Name)
 
-			if i == 0 {
-				s = buttonDisplay
-			} else {
-				s = lipgloss.JoinHorizontal(lipgloss.Left, s, buttonDisplay)
-			}
+		if i == m.cursor {
+			buttonDisplay = currentButtonStyle.Render(b.Name)
+		}
+
+		if i == 0 {
+			s = buttonDisplay
+		} else {
+			s = lipgloss.JoinHorizontal(lipgloss.Left, s, buttonDisplay)
 		}
 	}
 

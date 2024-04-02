@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/buttons"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
@@ -92,15 +93,15 @@ type model struct {
 	keys              MainKeyMap
 	metadata          metadata.Model
 	dependencies      dependency.Model
-	packaging         radioList.Model
 	javaVersion       radioList.Model
+	packaging         radioList.Model
 	project           radioList.Model
 	springBootVersion radioList.Model
 	language          radioList.Model
+	buttons           buttons.Model
 	currentSection    section
 	width             int
 	height            int
-	buttons           buttons.Model
 }
 
 type MainKeyMap struct {
@@ -238,12 +239,11 @@ func main() {
 
 var (
 	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
-	hoverStyle        lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
 	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
 				PaddingBottom(1).Bold(true).PaddingLeft(1)
-	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color("205"))
+	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.MainColour))
 	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).PaddingLeft(1)
-	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color("205"))
+	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.MainColour))
 )
 
 func renderSection(title, s string, isCurrent bool) string {

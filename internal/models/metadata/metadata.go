@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/muesli/reflow/truncate"
 )
 
@@ -149,7 +150,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-var hoverStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+var hoverStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(constants.SecondaryColour))
 
 func (m Model) View() string {
 	s := strings.Builder{}

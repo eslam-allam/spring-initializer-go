@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/eslam-allam/spring-initializer-go/constants"
 )
 
 type Action int
@@ -42,13 +43,13 @@ type Button struct {
 type Model struct {
 	keys        KeyMap
 	buttons     []Button
+	spinner     spinner.Model
 	cursor      int
 	width       int
 	height      int
-	spinner     spinner.Model
-	inAction    bool
 	actionIndex int
 	actionState ActionState
+	inAction    bool
 }
 
 func (m Model) ShortHelp() []key.Binding {
@@ -69,7 +70,7 @@ var (
 			Margin(0, 1).Padding(0, 1)
 	currentButtonStyle lipgloss.Style = lipgloss.NewStyle().Inherit(buttonStyle).Margin(0, 1).
 				Padding(0, 1).
-				BorderForeground(lipgloss.Color("205")).Foreground(lipgloss.Color("205"))
+				BorderForeground(lipgloss.Color(constants.SecondaryColour)).Foreground(lipgloss.Color(constants.SecondaryColour))
 )
 
 func (m Model) View() string {

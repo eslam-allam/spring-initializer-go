@@ -36,7 +36,8 @@ go install github.com/eslam-allam/spring-initializer-go/cmd/spring-initializer@l
 
 ### Pre Compiled Binary
 
-You can also grab one of the pre-compiled binaries from the [bin](./bin/) folder
+You can also grab one of the pre-compiled binaries from the
+[Releases Section](https://github.com/eslam-allam/spring-initializer-go/releases)
 and place it in a folder currently in PATH.
 
 ## Usage

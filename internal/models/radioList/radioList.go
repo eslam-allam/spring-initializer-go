@@ -1,12 +1,15 @@
 package radioList
 
 import (
+	"log"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+var logger *log.Logger = log.Default()
 
 type Item struct {
 	Name   string
@@ -27,6 +30,7 @@ type Model struct {
 func (m *Model) SetSize(h, v int) {
 	m.height = v
 	m.width = h
+    logger.Printf("Current radio list size: height=%d, width=%d", v, h)
 }
 
 func (m Model) GetSelected() Item {
@@ -84,6 +88,11 @@ var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("6
 func (m Model) View() string {
 	s := strings.Builder{}
 	for i, choice := range m.choices {
+        
+        if i != 0 && m.direction == VERTICAL && i + 1 >= m.height {
+            break
+        }
+
 		if i == m.selected {
 			s.WriteString("(*) ")
 		} else {

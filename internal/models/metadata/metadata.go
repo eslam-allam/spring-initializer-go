@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -12,12 +13,47 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
+var logger *log.Logger = log.Default()
+
 type Field struct {
-	Name           string
-	Id             string
-	Default        string
+	name           string
+	id             string
+	defaultValue   string
 	inputLastValue string
+	valueFrom      []int
+	updates        []int
 	input          textinput.Model
+	concatChar     rune
+}
+
+type FieldOption func(*Field)
+
+func WithLink(linkedField ...int) FieldOption {
+	return func(f *Field) {
+		f.updates = linkedField
+	}
+}
+
+func UpdatesFrom(concatChar rune, fields ...int) FieldOption {
+	return func(f *Field) {
+		f.valueFrom = fields
+		f.concatChar = concatChar
+	}
+}
+
+func NewField(name, id, defaultVal string, options ...FieldOption) Field {
+	field := Field{
+		name:         name,
+		id:           id,
+		defaultValue: defaultVal,
+		updates:      make([]int, 0),
+		concatChar:   '.',
+	}
+
+	for _, opt := range options {
+		opt(&field)
+	}
+	return field
 }
 
 type Model struct {
@@ -45,13 +81,15 @@ func (m Model) GetValues() []FieldValue {
 	for i, field := range m.fields {
 		value := field.inputLastValue
 		if value == "" {
-			value = field.Default
+			value = field.defaultValue
 		}
 		values[i] = FieldValue{
-			Id:    field.Id,
+			Id:    field.id,
 			Value: value,
 		}
 	}
+
+	logger.Printf("MetaData Values: %+v", values)
 	return values
 }
 
@@ -127,6 +165,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			default:
 				field.input, cmd = field.input.Update(msg)
 
+				for _, index := range field.updates {
+					linkedField := &m.fields[index]
+					newValues := make([]string, len(linkedField.valueFrom))
+					for i, index := range linkedField.valueFrom {
+						value := m.fields[index].input.Value()
+						if value == "" {
+							value = m.fields[index].defaultValue
+						}
+						newValues[i] = value
+					}
+					newInput := strings.Join(newValues, string(linkedField.concatChar))
+					linkedField.input.SetValue(newInput)
+					linkedField.inputLastValue = newInput
+				}
+
 			}
 		} else {
 			switch {
@@ -163,9 +216,9 @@ func (m Model) View() string {
 			display = hoverStyle.Render(display)
 		}
 
-        if lipgloss.Width(display) > m.width - 1 {
-            display = truncate.StringWithTail(display, uint(m.width - 1), "…")
-        }
+		if lipgloss.Width(display) > m.width-1 {
+			display = truncate.StringWithTail(display, uint(m.width-1), "…")
+		}
 		s.WriteString(display)
 
 		if i < len(m.fields)-1 {
@@ -179,8 +232,8 @@ func New(fields ...Field) Model {
 	newFields := make([]Field, len(fields))
 	for i, field := range fields {
 		input := textinput.New()
-		input.Prompt = fmt.Sprintf("%s: ", strings.TrimSpace(field.Name))
-		input.Placeholder = field.Default
+		input.Prompt = fmt.Sprintf("%s: ", strings.TrimSpace(field.name))
+		input.Placeholder = field.defaultValue
 		field.input = input
 		newFields[i] = field
 	}

@@ -142,18 +142,15 @@ func initialModel() model {
 	projects := make([]radioList.Item, len(metaData.Type.Values))
 	language := make([]radioList.Item, len(metaData.Language.Values))
 	packaging := make([]radioList.Item, len(metaData.Packaging.Values))
-	metadataFields := []metaField{metaData.GroupId, metaData.ArtifactId, metaData.Name, metaData.Description, metaData.PackageName}
-	metadataFieldIds := []string{"groupId", "artifactId", "name", "description", "packageName"}
-	metadataFieldNames := []string{"Group", "Artifact", "Name", "Description", "Package Name"}
-	metaDisplayFields := make([]metadata.Field, len(metadataFields))
 
-	for i, field := range metadataFields {
-		metaDisplayFields[i] = metadata.Field{
-			Id:      metadataFieldIds[i],
-			Name:    metadataFieldNames[i],
-			Default: field.Default,
-		}
+	metaDisplayFields := []metadata.Field{
+		metadata.NewField("Group", "groupId", metaData.GroupId.Default, metadata.WithLink(4)),
+		metadata.NewField("Artifact", "artifactId", metaData.ArtifactId.Default, metadata.WithLink(4, 2)),
+		metadata.NewField("Name", "name", metaData.Name.Default, metadata.UpdatesFrom(' ', 1)),
+		metadata.NewField("Description", "description", metaData.Description.Default),
+		metadata.NewField("Package Name", "packageName", metaData.PackageName.Default, metadata.UpdatesFrom('.', 0, 1)),
 	}
+
 	for i, field := range metaData.Packaging.Values {
 		packaging[i] = radioList.Item{
 			Id:   field.Id,
@@ -227,7 +224,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-    tmpDir := os.TempDir()
+	tmpDir := os.TempDir()
 	f, err := tea.LogToFile(path.Join(tmpDir, "spring-init.log"), "Main loop")
 	if err != nil {
 		fmt.Printf("Failed to start logger: %v", err)

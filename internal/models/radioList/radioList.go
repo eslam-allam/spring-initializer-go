@@ -87,24 +87,40 @@ var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("6
 
 func (m Model) View() string {
 	s := strings.Builder{}
-	for i, choice := range m.choices {
-        
-        if i != 0 && m.direction == VERTICAL && i + 1 >= m.height {
-            break
-        }
+    
+    perPage := m.height
+    if perPage < 1 {
+        perPage = 1
+    }
+    currentPage := m.cursor / perPage
 
-		if i == m.selected {
+    startIndex := currentPage * perPage
+    lastIndex := startIndex + perPage
+
+    if lastIndex > len(m.choices) {
+        lastIndex = len(m.choices)
+    }
+
+    if m.direction == HORIZONTAL {
+        startIndex = 0
+        lastIndex = len(m.choices)
+    }
+
+	for i, choice := range m.choices[startIndex:lastIndex] {
+        currentIndex := startIndex + i
+
+		if currentIndex == m.selected {
 			s.WriteString("(*) ")
 		} else {
 			s.WriteString("( ) ")
 		}
 
 		choiceDisplay := choice.Name
-		if m.cursor == i {
+		if m.cursor == currentIndex {
 			choiceDisplay = hoverStyle.Render(choice.Name)
 		}
 		s.WriteString(choiceDisplay)
-		if i != len(m.choices)-1 {
+		if currentIndex != lastIndex-1 {
 			if m.direction == HORIZONTAL {
 				s.WriteString(" ")
 			} else {
@@ -133,5 +149,6 @@ func New(d direction, choices ...Item) Model {
 		choices:   choices,
 		keys:      keys,
 		direction: d,
+        height:    3,
 	}
 }

@@ -14,7 +14,10 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour))
+var (
+	itemStyle  lipgloss.Style = lipgloss.NewStyle()
+	hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour))
+)
 
 type Model struct {
 	Selected      map[string]struct{}
@@ -106,14 +109,14 @@ var defaultFilterKeys = FilterKeyMap{
 func (m Model) View() string {
 	body := m.bodyView()
 	body = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, body)
-    
+
 	body = lipgloss.JoinVertical(lipgloss.Center, body, truncate.StringWithTail(m.paginate.View(), uint(m.width), "…"))
 
 	filter := m.filterField.View()
 
-    if lipgloss.Width(filter) > m.width {
-        filter = truncate.StringWithTail(filter, uint(m.width), "…")
-    }
+	if lipgloss.Width(filter) > m.width {
+		filter = truncate.StringWithTail(filter, uint(m.width), "…")
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, filter)
 }
 
@@ -142,14 +145,14 @@ func (m Model) bodyView() string {
 			body.WriteString("[ ] ")
 		}
 
-		itemDisplay := item.Name
+		itemDisplay := itemStyle.Render(item.Name)
 		if currentIndex == m.cursor {
 			itemDisplay = hoverStyle.Render(itemDisplay)
 		}
 
-        if lipgloss.Width(itemDisplay) > m.width - 4 {
-            itemDisplay = truncate.StringWithTail(itemDisplay, uint(m.width-4), "…")
-        }
+		if lipgloss.Width(itemDisplay) > m.width-4 {
+			itemDisplay = truncate.StringWithTail(itemDisplay, uint(m.width-4), "…")
+		}
 		body.WriteString(itemDisplay)
 
 		if i != m.paginate.PerPage-1 {
@@ -293,8 +296,8 @@ func New(dependencies ...Dependency) Model {
 	p := paginator.New()
 	p.Type = paginator.Dots
 	p.PerPage = 20
-	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "235", Dark: "252"}).Render("•")
-	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "250", Dark: "238"}).Render("•")
+	p.InactiveDot = lipgloss.NewStyle().Render("•")
+	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour)).Render(p.ActiveDot)
 	p.SetTotalPages(len(dependencies))
 
 	model := Model{

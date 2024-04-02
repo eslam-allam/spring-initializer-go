@@ -203,7 +203,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-var hoverStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(constants.SecondaryColour))
+var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour))
 
 func (m Model) View() string {
 	s := strings.Builder{}

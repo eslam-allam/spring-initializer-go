@@ -1,8 +1,6 @@
 package buttons
 
 import (
-	"time"
-
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,7 +70,7 @@ var (
 				Padding(0, 1).
 				BorderForeground(lipgloss.Color(constants.SecondaryColour)).Foreground(lipgloss.Color(constants.SecondaryColour))
 	successMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7ae878"))
-	failureMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
+	failureMessageStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#f84841"))
 )
 
 func (m Model) View() string {
@@ -117,10 +115,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.actionState = msg
 		switch msg {
 		case ACTION_SUCCESS, ACTION_FAILED:
-			cmd = func() tea.Msg {
-				time.Sleep(2 * time.Second)
-				return ACTION_RESET
-			}
 		case ACTION_RESET:
 			m.actionState = ACTION_IDOL
 		}
@@ -132,7 +126,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if m.inAction {
 			return m, cmd
 		}
-		m.actionState = ACTION_IDOL
+
+		if m.actionState == ACTION_SUCCESS || m.actionState == ACTION_FAILED {
+			m.actionState = ACTION_IDOL
+			return m, cmd
+		}
 		switch {
 
 		case key.Matches(msg, m.keys.NEXT):

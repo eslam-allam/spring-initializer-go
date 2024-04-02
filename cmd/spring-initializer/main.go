@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -24,6 +25,8 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
 )
+
+var logger *log.Logger = log.Default()
 
 const springUrl = "https://start.spring.io"
 
@@ -224,7 +227,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-	f, err := tea.LogToFile("./logs.log", "debug")
+    tmpDir := os.TempDir()
+	f, err := tea.LogToFile(path.Join(tmpDir, "spring-init.log"), "Main loop")
 	if err != nil {
 		fmt.Printf("Failed to start logger: %v", err)
 		os.Exit(1)
@@ -232,8 +236,7 @@ func main() {
 	defer f.Close()
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
+		logger.Fatalf("Error occurred in main loop: %v", err)
 	}
 }
 

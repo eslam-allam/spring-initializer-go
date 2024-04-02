@@ -32,7 +32,6 @@ type Model struct {
 func (m *Model) SetSize(h, v int) {
 	m.height = v
 	m.width = h
-    logger.Printf("Current radio list size: height=%d, width=%d", v, h)
 }
 
 func (m Model) GetSelected() Item {

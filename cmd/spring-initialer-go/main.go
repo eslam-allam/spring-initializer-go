@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -232,10 +233,10 @@ func main() {
 var (
 	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
 	hoverStyle        lipgloss.Style = lipgloss.NewStyle().Background(lipgloss.Color("#FFFF00"))
-	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.RoundedBorder(), true, true, false).
+	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
 				PaddingBottom(1).Bold(true)
 	currentSectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Inherit(sectionTitleStyle).BorderForeground(lipgloss.Color("205")).PaddingBottom(1)
-	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), false, true, true)
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true)
 	currentSectionStyle      lipgloss.Style = lipgloss.NewStyle().Inherit(sectionStyle).BorderForeground(lipgloss.Color("205"))
 )
 
@@ -263,7 +264,6 @@ func (m model) iteratingRenderer() func(title, s string) string {
 func (m model) View() string {
 	m.updateHelp()
 	renderer := m.iteratingRenderer()
-
 	leftSection := lipgloss.JoinVertical(lipgloss.Center,
 		lipgloss.JoinHorizontal(lipgloss.Center, renderer("Project", m.project.View()),
 			lipgloss.JoinVertical(lipgloss.Center, renderer("Language", m.language.View()), renderer("Packaging", m.packaging.View()))),
@@ -396,6 +396,27 @@ func unzipFile(zipFile, destDir string) error {
 	return nil
 }
 
+func cellDimentions(h, v int, mh, mv float64, cieling ...bool) (int, int) {
+	rh, rv := float64(h)*mh, float64(v)*mv
+	for i, c := range cieling {
+		switch i {
+		case 0:
+			if c {
+				rh = math.Ceil(rh)
+			} else {
+				rh = math.Floor(rh)
+			}
+		case 1:
+			if c {
+				rv = math.Ceil(rv)
+			} else {
+				rv = math.Floor(rv)
+			}
+		}
+	}
+	return int(rh), int(rv)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -455,16 +476,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.width, m.height = msg.Width, msg.Height
-		hs, hv := sectionStyle.GetFrameSize()
-		sectionMinHeight := sectionStyle.GetVerticalFrameSize() + sectionTitleStyle.GetVerticalFrameSize()
-		m.project.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv-sectionMinHeight+4)
-		m.language.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv-sectionMinHeight-1)
-		m.packaging.SetSize((msg.Width-h)/4-hs, 1)
-		m.springBootVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
-		m.javaVersion.SetSize((msg.Width-h)/4-hs, (msg.Height-v)/4-hv)
-		m.metadata.SetSize((msg.Width-h)/2-hs, (msg.Height-((msg.Height-v)/4+sectionStyle.GetVerticalFrameSize()+sectionTitleStyle.GetVerticalFrameSize())*3)-hv-2)
-		m.dependencies.SetSize((msg.Width-h)/2-hs, (msg.Height-v)-17)
-		m.buttons.SetSize((msg.Width-h)/2-hs, 3)
+
+		hs, vs := sectionStyle.GetFrameSize()
+		hs, vs = hs+1, vs+sectionTitleStyle.GetVerticalFrameSize()+1
+		cellDimentsionCalc := func(eh, ev int, mh, mv float64, cieling ...bool) (int, int) {
+			return cellDimentions(m.width-h-(hs*eh), m.height-v-(vs*ev)-2, mh, mv, cieling...)
+		}
+
+		m.project.SetSize(cellDimentsionCalc(3, 3, 0.25, 0.5, false, true))
+		m.language.SetSize(cellDimentsionCalc(3, 4, 0.25, 0.1875, false, true))
+		m.packaging.SetSize(cellDimentsionCalc(3, 4, 0.25, 0.2125, false, false))
+
+		m.springBootVersion.SetSize(cellDimentsionCalc(3, 3, 0.25, 0.3))
+		m.javaVersion.SetSize(cellDimentsionCalc(3, 3, 0.25, 0.3))
+
+		m.metadata.SetSize(cellDimentsionCalc(2, 3, 0.5, 0.25, true))
+
+		m.dependencies.SetSize(cellDimentsionCalc(3, 2, 0.5, 0.72, true, true))
+		m.buttons.SetSize(cellDimentsionCalc(2, 2, 0.5, 0.2, true, false))
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):

@@ -223,12 +223,12 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-    f, err := tea.LogToFile("./logs.log", "debug")
-    if err != nil {
-        fmt.Printf("Failed to start logger: %v", err)
-        os.Exit(1)
-    }
-    defer f.Close()
+	f, err := tea.LogToFile("./logs.log", "debug")
+	if err != nil {
+		fmt.Printf("Failed to start logger: %v", err)
+		os.Exit(1)
+	}
+	defer f.Close()
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
@@ -488,23 +488,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cellDimentsionCalc := func(eh, ev int, mh, mv float64, cieling ...bool) (int, int) {
 			return cellDimentions(m.width-h-(hs*eh), m.height-v-(vs*ev)-2, mh, mv, cieling...)
 		}
-        
-        
-        cw, cv := cellDimentsionCalc(3, 4, 0.25, 0.2, false, false)
-        ph, pv := cw, cv + 1 + vs
-		m.project.SetSize(ph, pv)
-		m.language.SetSize(cw , cv)
-		m.packaging.SetSize(cw, 1)
-        
-        _, cmv := cellDimentsionCalc(3, 3, 1, 1, false, false)
-		m.springBootVersion.SetSize(cw, cmv - 5 - pv)
-		m.javaVersion.SetSize(cw, cmv - 5 - pv)
-        
-        c2w, _ := cellDimentsionCalc(2, 3, 0.5, 0.25, false, false)
-		m.metadata.SetSize(cw * 2 + hs - 1, 5)
 
-		m.dependencies.SetSize(c2w, pv + (cmv - 5 - pv) + 2)
-		m.buttons.SetSize(c2w+1, 5)
+		cw, cv := cellDimentsionCalc(3, 4, 0.25, 0.2, false, false)
+		ph, pv := cw, cv+1+vs
+		m.project.SetSize(ph, pv)
+		m.language.SetSize(cw, cv)
+		m.packaging.SetSize(cw, 1)
+
+		_, cmv := cellDimentsionCalc(3, 3, 1, 1, false, false)
+		m.springBootVersion.SetSize(cw, cmv-5-pv)
+		m.javaVersion.SetSize(cw, cmv-5-pv)
+
+		// c2w, _ := cellDimentsionCalc(2, 3, 0.5, 0.25, false, false)
+
+		c2w := cw*2 + hs - 1
+		m.metadata.SetSize(c2w, 5)
+
+		m.dependencies.SetSize(c2w, pv+(cmv-5-pv)+2)
+		m.buttons.SetSize(c2w, 5)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/truncate"
 )
 
 type Field struct {
@@ -160,6 +161,10 @@ func (m Model) View() string {
 		if i == m.cursor {
 			display = hoverStyle.Render(display)
 		}
+
+        if lipgloss.Width(display) > m.width - 1 {
+            display = truncate.StringWithTail(display, uint(m.width - 1), "…")
+        }
 		s.WriteString(display)
 
 		if i < len(m.fields)-1 {

@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/truncate"
 )
 
 var logger *log.Logger = log.Default()
@@ -119,6 +120,10 @@ func (m Model) View() string {
 		if m.cursor == currentIndex {
 			choiceDisplay = hoverStyle.Render(choice.Name)
 		}
+
+        if lipgloss.Width(choiceDisplay) > m.width - 4 {
+            choiceDisplay = truncate.StringWithTail(choiceDisplay, uint(m.width-4), "…")
+        }
 		s.WriteString(choiceDisplay)
 		if currentIndex != lastIndex-1 {
 			if m.direction == HORIZONTAL {

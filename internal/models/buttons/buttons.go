@@ -103,7 +103,7 @@ func (m Model) View() string {
 		}
 	}
 
-	return lipgloss.Place(m.width-1, m.height, lipgloss.Left, lipgloss.Center, s)
+	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Center, s)
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {

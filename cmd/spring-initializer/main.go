@@ -268,6 +268,12 @@ func (m model) iteratingRenderer() func(title, s string) string {
 }
 
 func (m model) View() string {
+	if m.width < constants.MinScreenWidth || m.height < constants.MinScreenHeight {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, 
+            fmt.Sprintf("This screen is too small. (Min: %dx%d) (Current: %dx%d)", 
+            constants.MinScreenWidth, constants.MinScreenHeight, m.width, m.height))
+	}
+
 	m.updateHelp()
 	renderer := m.iteratingRenderer()
 	leftSection := lipgloss.JoinVertical(lipgloss.Center,

@@ -25,6 +25,7 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
+	"github.com/muesli/termenv"
 )
 
 var logger *log.Logger = log.Default()
@@ -261,9 +262,28 @@ func main() {
 		}
 	}
 
+	output := termenv.DefaultOutput()
+
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	currentBackground := output.BackgroundColor()
+    currentForeground := output.ForegroundColor()
+	colorSet := false
+	_, inTmux := os.LookupEnv("TMUX")
+	logger.Printf("Is in tmux: %v", inTmux)
+	if !inTmux {
+		output.SetBackgroundColor(termenv.RGBColor(constants.BackgroundColour))
+		output.SetForegroundColor(termenv.RGBColor(constants.ForegroundColour))
+		colorSet = true
+	}
+
 	if _, err := p.Run(); err != nil {
-		logger.Fatalf("Error occurred in main loop: %v", err)
+		logger.Printf("Error occurred in main loop: %v", err)
+	}
+
+	if colorSet {
+		output.SetBackgroundColor(currentBackground)
+        output.SetForegroundColor(currentForeground)
 	}
 }
 

@@ -24,7 +24,7 @@ tailored to my needs.
 Clone the repository and run: `make compile-current` or `go build ./cmd/spring-initializer/`
 in the root of the repository.
 
-### Go install
+### Go install (Recommended)
 
 #### Prerequisites
 
@@ -40,18 +40,39 @@ You can also grab one of the pre-compiled binaries from the
 [Releases Section](https://github.com/eslam-allam/spring-initializer-go/releases)
 and place it in a folder currently in PATH.
 
+> Compiled binaries may not always be up to date so if you want the latest
+> features, the other methods are recommended.
+
 ## Usage
 
 This app has a similar interface to official [Web Spring Initializer](https://start.spring.io/).
 Just run the app using `spring-initializer` and you will be able to see a list of
 available key maps at the bottom of the screen.
 
+You may also pass the target directory as a positional command line argument as
+follows:
+
+```bash
+spring-initializer 'some-directory/some-other-directory' # Relative directory
+```
+
+```bash
+spring-initializer '/home/eslamallam/personal_projects/java/something' # Absolute directory
+```
+
+```bash
+spring-initializer '~/projects/spring' # ~ will be expanded to $HOME
+```
+
+The directory will be created if it doesn't exist.
+
 ## Todo
 
-- [ ] Add ability to pick project folder.
+- [x] Add ability to pick project folder.
 - [ ] Add description to dependency entries.
 - [ ] Make the UI more intuitive.
 - [ ] Refactor this unsightly code.
+- [ ] Add confirmation message when creating a new project.
 
 ## Issues
 

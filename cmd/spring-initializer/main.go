@@ -279,6 +279,7 @@ func main() {
 
 	if _, err := p.Run(); err != nil {
 		logger.Printf("Error occurred in main loop: %v", err)
+        defer os.Exit(1)
 	}
 
 	if colorSet {

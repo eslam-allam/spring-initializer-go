@@ -164,22 +164,26 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.typing = false
 			default:
 				field.input, cmd = field.input.Update(msg)
-
-				for _, index := range field.updates {
-					linkedField := &m.fields[index]
-					newValues := make([]string, len(linkedField.valueFrom))
-					for i, index := range linkedField.valueFrom {
-						value := m.fields[index].input.Value()
-						if value == "" {
-							value = m.fields[index].defaultValue
-						}
-						newValues[i] = value
+			}
+			for _, index := range field.updates {
+				linkedField := &m.fields[index]
+				newValues := make([]string, len(linkedField.valueFrom))
+				for i, index := range linkedField.valueFrom {
+					value := m.fields[index].input.Value()
+					if value == "" {
+						value = m.fields[index].defaultValue
 					}
-					newInput := strings.Join(newValues, string(linkedField.concatChar))
-					linkedField.input.SetValue(newInput)
-					linkedField.inputLastValue = newInput
+					newValues[i] = value
+				}
+				newInput := strings.Join(newValues, string(linkedField.concatChar))
+
+				if newInput == linkedField.defaultValue {
+					linkedField.input.Reset()
+                    continue
 				}
 
+				linkedField.input.SetValue(newInput)
+				linkedField.inputLastValue = newInput
 			}
 		} else {
 			switch {

@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,6 +30,8 @@ import (
 var logger *log.Logger = log.Default()
 
 const springUrl = "https://start.spring.io"
+
+var targetDirectory string = "."
 
 type metaFieldType string
 
@@ -231,6 +234,33 @@ func main() {
 		os.Exit(1)
 	}
 	defer f.Close()
+
+	args := os.Args[1:]
+
+	if len(args) > 0 {
+		targetDirectory = args[0]
+		if strings.HasPrefix(targetDirectory, "~") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				logger.Fatalf("Failed to get home directory: %v", err)
+			}
+			targetDirectory = strings.Replace(targetDirectory, "~", home, 1)
+		}
+		if !path.IsAbs(targetDirectory) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				logger.Fatalf("Failed to get current working directory: %v", err)
+			}
+			targetDirectory = path.Join(cwd, targetDirectory)
+			if _, err := os.Stat(targetDirectory); errors.Is(err, os.ErrNotExist) {
+				err = os.MkdirAll(targetDirectory, os.ModePerm)
+				if err != nil {
+					logger.Fatalf("Failed to create target directory: %v", err)
+				}
+			}
+		}
+	}
+
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		logger.Fatalf("Error occurred in main loop: %v", err)
@@ -243,8 +273,8 @@ var (
 				PaddingBottom(1).Bold(true).PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
 	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
 	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).
-        PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
-	currentSectionStyle      lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
+					PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	currentSectionStyle lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
 )
 
 func renderSection(title, s string, isCurrent bool) string {
@@ -270,9 +300,9 @@ func (m model) iteratingRenderer() func(title, s string) string {
 
 func (m model) View() string {
 	if m.width < constants.MinScreenWidth || m.height < constants.MinScreenHeight {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, 
-            fmt.Sprintf("This screen is too small. (Min: %dx%d) (Current: %dx%d)", 
-            constants.MinScreenWidth, constants.MinScreenHeight, m.width, m.height))
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			fmt.Sprintf("This screen is too small. (Min: %dx%d) (Current: %dx%d)",
+				constants.MinScreenWidth, constants.MinScreenHeight, m.width, m.height))
 	}
 
 	m.updateHelp()
@@ -445,38 +475,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg {
 		case buttons.DOWNLOAD:
 			cmd = func() tea.Msg {
-				url, _ := m.generateDownloadRequest()
-
-				cwd, err := os.Getwd()
+				url, err := m.generateDownloadRequest()
 				if err != nil {
+					logger.Printf("Error generating download request: %v", err)
 					return buttons.ACTION_FAILED
 				}
 
-				err = downloadGeneratedZip(url.String(), path.Join(cwd, path.Base(url.Path)))
+				err = downloadGeneratedZip(url.String(), path.Join(targetDirectory, path.Base(url.Path)))
 				if err != nil {
+					logger.Printf("Error downloading zip: %v", err)
 					return buttons.ACTION_FAILED
 				}
 				return buttons.ACTION_SUCCESS
 			}
 		case buttons.DOWNLOAD_EXTRACT:
 			cmd = func() tea.Msg {
-				url, _ := m.generateDownloadRequest()
-
-				cwd, err := os.Getwd()
+				url, err := m.generateDownloadRequest()
 				if err != nil {
+					logger.Printf("Error generating download request: %v", err)
 					return buttons.ACTION_FAILED
 				}
 
 				base := path.Base(url.Path)
-				assetPath := path.Join(cwd, base)
+				assetPath := path.Join(targetDirectory, base)
 				err = downloadGeneratedZip(url.String(), assetPath)
 				if err != nil {
+					logger.Printf("Error downloading zip: %v", err)
 					return buttons.ACTION_FAILED
 				}
 
 				if strings.HasSuffix(base, "zip") {
-					err = unzipFile(assetPath, cwd)
+					err = unzipFile(assetPath, targetDirectory)
 					if err != nil {
+						logger.Printf("Error unzipping file: %v", err)
 						return buttons.ACTION_FAILED
 					}
 					os.Remove(assetPath)

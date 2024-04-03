@@ -57,5 +57,5 @@ available key maps at the bottom of the screen.
 
 This project was mainly created to make my workflow more convenient but tickets
 are more than welcome. If you encounter any crashes or if there's something you
-wish was done differently, don't hesitate to open an issue or PR if you think 
+wish was done differently, don't hesitate to open an issue or PR if you think
 you can handle it yourself.

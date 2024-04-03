@@ -6,6 +6,10 @@ compile-current:
 	@echo "Compiling for current OS and Platform"
 	@go build -o ./bin/spring-initializer ./cmd/spring-initializer/
 
+compile-mac-m1:
+	@echo "Compiling for mac-m1"
+	@GOOS=darwin GOARCH=arm64 go build -o bin/spring-initializer-mac-m1 ./cmd/spring-initializer/
+
 compile-linux-386:
 	@echo "Compiling for linux-386"
 	@GOOS=linux GOARCH=386 go build -o bin/spring-initializer-linux-386 ./cmd/spring-initializer/
@@ -30,4 +34,4 @@ compile-freebsd-amd64:
 	@echo "Compiling for freebsd-amd64"
 	@GOOS=freebsd GOARCH=amd64 go build -o bin/spring-initializer-freebsd-amd64 ./cmd/spring-initializer/
 
-compile-all: compile-linux-386 compile-linux-amd64 compile-windows-386 compile-windows-amd64 compile-freebsd-386 compile-freebsd-amd64
+compile-all: compile-linux-386 compile-linux-amd64 compile-windows-386 compile-windows-amd64 compile-freebsd-386 compile-freebsd-amd64 compile-mac-m1

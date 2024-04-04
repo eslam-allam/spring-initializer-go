@@ -20,11 +20,11 @@ compile-linux-amd64:
 
 compile-windows-386:
 	@echo "Compiling for windows-386"
-	@GOOS=windows GOARCH=386 go build -o bin/spring-initializer-windows-386 ./cmd/spring-initializer/
+	@GOOS=windows GOARCH=386 go build -o bin/spring-initializer-windows-386.exe ./cmd/spring-initializer/
 
 compile-windows-amd64:
 	@echo "Compiling for windows-amd64"
-	@GOOS=windows GOARCH=amd64 go build -o bin/spring-initializer-windows-amd64 ./cmd/spring-initializer/
+	@GOOS=windows GOARCH=amd64 go build -o bin/spring-initializer-windows-amd64.exe ./cmd/spring-initializer/
 
 compile-freebsd-386:
 	@echo "Compiling for freebsd-386"

@@ -516,6 +516,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msg.metadata.SetSize(m.metadata.GetSize())
 		msg.dependencies.SetSize(m.dependencies.GetSize())
 		msg.buttons.SetSize(m.buttons.GetSize())
+		msg.help.Width = m.help.Width
 		m = msg
 		m.state = READY
 
@@ -596,13 +597,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.springBootVersion.SetSize(cw, cmv-5-pv)
 		m.javaVersion.SetSize(cw, cmv-5-pv)
 
-		// c2w, _ := cellDimentsionCalc(2, 3, 0.5, 0.25, false, false)
-
 		c2w := cw*2 + hs - 1
 		m.metadata.SetSize(c2w, 5)
 
 		m.dependencies.SetSize(c2w, pv+(cmv-5-pv)+2)
 		m.buttons.SetSize(c2w, 5)
+
+		m.help.Width = c2w*2 - h - hs
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):

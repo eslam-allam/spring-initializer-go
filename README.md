@@ -3,7 +3,7 @@
 A [Spring Initializer](https://github.com/spring-io/start.spring.io) client
 written in Go.
 
-![preview](./assets/preview-1.png)
+![preview](./assets/preview-5.png)
 
 ## Motivation
 
@@ -80,3 +80,41 @@ This project was mainly created to make my workflow more convenient but tickets
 are more than welcome. If you encounter any crashes or if there's something you
 wish was done differently, don't hesitate to open an issue or PR if you think
 you can handle it yourself.
+
+## Troubleshooting
+
+### Resizing the terminal window scrambles the look of the app
+
+If you are using windows then unfortunately the app won't automatically resize
+itself as windows doesn't send size change events. My recommendation is to set
+the size of the terminal to a suitable size
+before launching the app. I currently don't have a solution for this limitation
+but hopefully will find a workaround in the future.
+
+### The app takes a long time to load
+
+Before the app launches, it sends a request to spring.io to fetch necessary
+metadata. This step is needed to display the various options you can select.
+I'm currently working on adding a loading screen for this step in the near
+future.
+
+### The text is really small/unreadable
+
+Since this is a terminal-based app, it uses your terminal's font.
+Try changing your terminal's font or increase the font size. The preview up top
+is using JetBrains Mono with size 12.
+
+### Color contrast is poor
+
+If you are using TMUX, it's currently not possible to change the terminal's color
+when launching the app while ensuring the terminal goes back to it's original state
+after quitting. In that case the app will inherit your terminal's background and
+foreground colors. If you are not using TMUX then please submit an issue. A temporary
+workaround would be to change your terminal's color scheme to a darker tone.
+
+## Contributing
+
+If you have a feature you believe should be added and you wish to tackle it yourself,
+make a fork of this repo and submit a PR once you`re done. It's recommended to submit
+an issue first to make sure this is something that would benefit the project to
+not waste your efforts.

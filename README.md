@@ -31,6 +31,12 @@ in the root of the repository.
 - [Golang](https://go.dev/doc/install)
 
 ```bash
+go install github.com/eslam-allam/spring-initializer-go/cmd/spring-initializer
+```
+
+or for the latest release (may not be up to date):
+
+```bash
 go install github.com/eslam-allam/spring-initializer-go/cmd/spring-initializer@latest
 ```
 

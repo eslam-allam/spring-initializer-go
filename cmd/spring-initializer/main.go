@@ -94,10 +94,18 @@ const (
 	BUTTONS
 )
 
+type appState int
+
+const (
+	LOADING appState = iota
+	READY
+)
+
 type model struct {
 	help              help.Model
 	currentHelp       string
 	keys              MainKeyMap
+	spinner           spinner.Model
 	metadata          metadata.Model
 	dependencies      dependency.Model
 	javaVersion       radioList.Model
@@ -106,6 +114,7 @@ type model struct {
 	springBootVersion radioList.Model
 	language          radioList.Model
 	buttons           buttons.Model
+	state             appState
 	currentSection    section
 	width             int
 	height            int
@@ -195,7 +204,6 @@ func initialModel() model {
 			Name: version.Name,
 		}
 	}
-
 	return model{
 		project:           radioList.New(radioList.VERTICAL, projects...),
 		language:          radioList.New(radioList.VERTICAL, language...),
@@ -224,7 +232,9 @@ func sanitizeId(s string) string {
 
 func (m model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
-	return nil
+	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+		return initialModel()
+	})
 }
 
 func main() {
@@ -264,10 +274,12 @@ func main() {
 
 	output := termenv.DefaultOutput()
 
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model{
+		spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
+	}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	currentBackground := output.BackgroundColor()
-    currentForeground := output.ForegroundColor()
+	currentForeground := output.ForegroundColor()
 	colorSet := false
 	_, inTmux := os.LookupEnv("TMUX")
 	logger.Printf("Is in tmux: %v", inTmux)
@@ -279,12 +291,12 @@ func main() {
 
 	if _, err := p.Run(); err != nil {
 		logger.Printf("Error occurred in main loop: %v", err)
-        defer os.Exit(1)
+		defer os.Exit(1)
 	}
 
 	if colorSet {
 		output.SetBackgroundColor(currentBackground)
-        output.SetForegroundColor(currentForeground)
+		output.SetForegroundColor(currentForeground)
 	}
 }
 
@@ -319,7 +331,16 @@ func (m model) iteratingRenderer() func(title, s string) string {
 	}
 }
 
+func (m model) renderMain(content string) string {
+	h, v := docStyle.GetFrameSize()
+	return docStyle.Render(lipgloss.Place(m.width-h, m.height-v, lipgloss.Center, lipgloss.Center, content))
+}
+
 func (m model) View() string {
+	if m.state == LOADING {
+		return m.renderMain(lipgloss.JoinHorizontal(lipgloss.Center, m.spinner.View(), "Loading metadata from spring.io..."))
+	}
+
 	if m.width < constants.MinScreenWidth || m.height < constants.MinScreenHeight {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
 			fmt.Sprintf("This screen is too small. (Min: %dx%d) (Current: %dx%d)",
@@ -336,11 +357,10 @@ func (m model) View() string {
 		renderer("Project Metadata", m.metadata.View()),
 	)
 	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", m.buttons.View()))
-	h, v := docStyle.GetFrameSize()
-	return docStyle.Render(lipgloss.Place(m.width-h, m.height-v, lipgloss.Center, lipgloss.Center,
+	return m.renderMain(
 		lipgloss.JoinVertical(lipgloss.Center,
 			lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection),
-			m.help.View(m.keys))))
+			m.help.View(m.keys)))
 }
 
 func (m *model) updateHelp() {
@@ -483,11 +503,29 @@ func cellDimentions(h, v int, mh, mv float64, cieling ...bool) (int, int) {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 
+	case model:
+		msg.height = m.height
+		msg.width = m.width
+		msg.project.SetSize(m.project.GetSize())
+		msg.language.SetSize(m.language.GetSize())
+		msg.springBootVersion.SetSize(m.springBootVersion.GetSize())
+		msg.javaVersion.SetSize(m.javaVersion.GetSize())
+		msg.packaging.SetSize(m.packaging.GetSize())
+		msg.metadata.SetSize(m.metadata.GetSize())
+		msg.dependencies.SetSize(m.dependencies.GetSize())
+		msg.buttons.SetSize(m.buttons.GetSize())
+		m = msg
+		m.state = READY
+
 	case spinner.TickMsg:
-		m.buttons, cmd = m.buttons.Update(msg)
+		switch m.state {
+		case LOADING:
+			m.spinner, cmd = m.spinner.Update(msg)
+		case READY:
+			m.buttons, cmd = m.buttons.Update(msg)
+		}
 
 	case buttons.ActionState:
 		m.buttons, cmd = m.buttons.Update(msg)

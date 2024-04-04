@@ -34,15 +34,20 @@ func (m *Model) SetSize(h, v int) {
 	m.width = h
 }
 
+func (m Model) GetSize() (h, v int) {
+	return m.width, m.height
+}
+
 func (m Model) GetSelected() Item {
 	return m.choices[m.selected]
 }
 
 func (m Model) ShortHelp() []key.Binding {
-    return m.keys.ShortHelp()
+	return m.keys.ShortHelp()
 }
+
 func (m Model) FullHelp() [][]key.Binding {
-    return m.keys.FullHelp()
+	return m.keys.FullHelp()
 }
 
 type KeyMap struct {
@@ -52,13 +57,13 @@ type KeyMap struct {
 }
 
 func (k KeyMap) ShortHelp() []key.Binding {
-    return []key.Binding{}
+	return []key.Binding{}
 }
- 
+
 func (k KeyMap) FullHelp() [][]key.Binding {
-    return [][]key.Binding{{k.PREV, k.NEXT}, {k.SELECT}}
+	return [][]key.Binding{{k.PREV, k.NEXT}, {k.SELECT}}
 }
-    
+
 var defaultKeys = KeyMap{
 	PREV:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "previous")),
 	NEXT:   key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "next")),
@@ -88,27 +93,27 @@ var hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(co
 
 func (m Model) View() string {
 	s := strings.Builder{}
-    
-    perPage := m.height
-    if perPage < 1 {
-        perPage = 1
-    }
-    currentPage := m.cursor / perPage
 
-    startIndex := currentPage * perPage
-    lastIndex := startIndex + perPage
+	perPage := m.height
+	if perPage < 1 {
+		perPage = 1
+	}
+	currentPage := m.cursor / perPage
 
-    if lastIndex > len(m.choices) {
-        lastIndex = len(m.choices)
-    }
+	startIndex := currentPage * perPage
+	lastIndex := startIndex + perPage
 
-    if m.direction == HORIZONTAL {
-        startIndex = 0
-        lastIndex = len(m.choices)
-    }
+	if lastIndex > len(m.choices) {
+		lastIndex = len(m.choices)
+	}
+
+	if m.direction == HORIZONTAL {
+		startIndex = 0
+		lastIndex = len(m.choices)
+	}
 
 	for i, choice := range m.choices[startIndex:lastIndex] {
-        currentIndex := startIndex + i
+		currentIndex := startIndex + i
 
 		if currentIndex == m.selected {
 			s.WriteString("(*) ")
@@ -121,9 +126,9 @@ func (m Model) View() string {
 			choiceDisplay = hoverStyle.Render(choice.Name)
 		}
 
-        if lipgloss.Width(choiceDisplay) > m.width - 4 {
-            choiceDisplay = truncate.StringWithTail(choiceDisplay, uint(m.width-4), "…")
-        }
+		if lipgloss.Width(choiceDisplay) > m.width-4 {
+			choiceDisplay = truncate.StringWithTail(choiceDisplay, uint(m.width-4), "…")
+		}
 		s.WriteString(choiceDisplay)
 		if currentIndex != lastIndex-1 {
 			if m.direction == HORIZONTAL {
@@ -143,7 +148,6 @@ const (
 	VERTICAL
 )
 
-
 func New(d direction, choices ...Item) Model {
 	keys := defaultKeys
 	if d == HORIZONTAL {
@@ -154,6 +158,6 @@ func New(d direction, choices ...Item) Model {
 		choices:   choices,
 		keys:      keys,
 		direction: d,
-        height:    3,
+		height:    3,
 	}
 }

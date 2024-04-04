@@ -71,6 +71,10 @@ func (m *Model) SetSize(h, v int) {
 	m.height = v
 }
 
+func (m Model) GetSize() (h, v int) {
+	return m.width, m.height
+}
+
 type FieldValue struct {
 	Id    string
 	Value string
@@ -179,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 				if newInput == linkedField.defaultValue {
 					linkedField.input.Reset()
-                    continue
+					continue
 				}
 
 				linkedField.input.SetValue(newInput)

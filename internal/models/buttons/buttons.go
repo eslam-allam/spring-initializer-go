@@ -63,6 +63,10 @@ func (m *Model) SetSize(h, v int) {
 	m.height = v
 }
 
+func (m Model) GetSize() (h, v int) {
+	return m.width, m.height
+}
+
 var (
 	buttonStyle lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true).
 			Margin(0, 1).Padding(0, 1)

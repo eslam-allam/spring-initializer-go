@@ -14,3 +14,7 @@ const (
     MinScreenWidth int = 92
     MinScreenHeight int = 30
 )
+
+const (
+    SpringUrl = "https://start.spring.io"
+)

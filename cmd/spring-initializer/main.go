@@ -1,18 +1,11 @@
 package main
 
 import (
-	"archive/zip"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -25,48 +18,12 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
 	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
-	"github.com/muesli/termenv"
+	"github.com/eslam-allam/spring-initializer-go/internal/service"
 )
 
 var logger *log.Logger = log.Default()
 
-const springUrl = "https://start.spring.io"
-
 var targetDirectory string = "."
-
-type metaFieldType string
-
-const (
-	TEXT          metaFieldType = "text"
-	SINGLE_SELECT metaFieldType = "single-select"
-	MULTI_SELECT  metaFieldType = "heirarchal-multi-select"
-	ACTION        metaFieldType = "action"
-)
-
-type metaField struct {
-	Id          string        `json:"id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Type        metaFieldType `json:"type"`
-	Default     string        `json:"default"`
-	Action      string        `json:"action"`
-	Values      []metaField   `json:"values"`
-}
-
-type springInitMeta struct {
-	ArtifactId   metaField `json:"artifactId"`
-	BootVersion  metaField `json:"bootVersion"`
-	Dependencies metaField `json:"dependencies"`
-	Description  metaField `json:"description"`
-	GroupId      metaField `json:"groupId"`
-	JavaVersion  metaField `json:"javaVersion"`
-	Language     metaField `json:"language"`
-	Name         metaField `json:"name"`
-	PackageName  metaField `json:"packageName"`
-	Packaging    metaField `json:"packaging"`
-	Type         metaField `json:"type"`
-	Version      metaField `json:"version"`
-}
 
 type checkListItem struct {
 	id      string
@@ -145,7 +102,7 @@ var defaultKeys MainKeyMap = MainKeyMap{
 }
 
 func initialModel() model {
-	metaData, err := getMeta()
+	metaData, err := service.GetMeta()
 	if err != nil {
 		panic(err)
 	}
@@ -249,55 +206,25 @@ func main() {
 	args := os.Args[1:]
 
 	if len(args) > 0 {
-		targetDirectory = args[0]
-		if strings.HasPrefix(targetDirectory, "~") {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				logger.Fatalf("Failed to get home directory: %v", err)
-			}
-			targetDirectory = strings.Replace(targetDirectory, "~", home, 1)
-		}
-		if !path.IsAbs(targetDirectory) {
-			cwd, err := os.Getwd()
-			if err != nil {
-				logger.Fatalf("Failed to get current working directory: %v", err)
-			}
-			targetDirectory = path.Join(cwd, targetDirectory)
-			if _, err := os.Stat(targetDirectory); errors.Is(err, os.ErrNotExist) {
-				err = os.MkdirAll(targetDirectory, os.ModePerm)
-				if err != nil {
-					logger.Fatalf("Failed to create target directory: %v", err)
-				}
-			}
+		targetDirectory, err = service.ExpandAndMakeDir(args[0])
+		if err != nil {
+			logger.Printf("Error making directory: %v", err)
+			os.Exit(1)
 		}
 	}
-
-	output := termenv.DefaultOutput()
 
 	p := tea.NewProgram(model{
 		spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
 	}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
-	currentBackground := output.BackgroundColor()
-	currentForeground := output.ForegroundColor()
-	colorSet := false
-	_, inTmux := os.LookupEnv("TMUX")
-	logger.Printf("Is in tmux: %v", inTmux)
-	if !inTmux {
-		output.SetBackgroundColor(termenv.RGBColor(constants.BackgroundColour))
-		output.SetForegroundColor(termenv.RGBColor(constants.ForegroundColour))
-		colorSet = true
-	}
+	colorUpdate := service.ApplyColors(constants.ForegroundColour, constants.BackgroundColour)
 
 	if _, err := p.Run(); err != nil {
 		logger.Printf("Error occurred in main loop: %v", err)
 		defer os.Exit(1)
 	}
 
-	if colorSet {
-		output.SetBackgroundColor(currentBackground)
-		output.SetForegroundColor(currentForeground)
-	}
+	service.ResetColors(colorUpdate)
 }
 
 var (
@@ -392,94 +319,6 @@ func (m *model) updateHelp() {
 	}
 }
 
-func (m model) generateDownloadRequest() (*url.URL, error) {
-	form := url.Values{}
-
-	for _, m := range m.metadata.GetValues() {
-		form.Add(m.Id, m.Value)
-	}
-
-	form.Add("type", m.project.GetSelected().Id)
-	form.Add("language", m.language.GetSelected().Id)
-	form.Add("bootVersion", m.springBootVersion.GetSelected().Id)
-	form.Add("packaging", m.packaging.GetSelected().Id)
-	form.Add("javaVersion", m.javaVersion.GetSelected().Id)
-
-	for _, d := range m.dependencies.GetSelectedIds() {
-		form.Add("dependencies", d)
-	}
-
-	url, error := url.Parse(fmt.Sprintf("%s?%s", springUrl, form.Encode()))
-
-	if error != nil {
-		return url, error
-	}
-
-	url = url.JoinPath(m.project.GetSelected().Action)
-
-	return url, nil
-}
-
-func downloadGeneratedZip(url string, filepath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("error downloading file: %s, %s", resp.Status, body)
-	}
-	defer resp.Body.Close()
-	// Create the output file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	// Copy the response body to the output file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func unzipFile(zipFile, destDir string) error {
-	// Open the zip file for reading
-	r, err := zip.OpenReader(zipFile)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	// Create the destination directory if it doesn't exist
-	if _, err := os.Stat(destDir); os.IsNotExist(err) {
-		os.MkdirAll(destDir, os.ModePerm)
-	}
-	// Extract each file from the zip archive
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-		path := filepath.Join(destDir, f.Name)
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, os.ModePerm)
-		} else {
-			outFile, err := os.Create(path)
-			if err != nil {
-				return err
-			}
-			defer outFile.Close()
-			_, err = io.Copy(outFile, rc)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func cellDimentions(h, v int, mh, mv float64, cieling ...bool) (int, int) {
 	rh, rv := float64(h)*mh, float64(v)*mv
 	for i, c := range cieling {
@@ -535,13 +374,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg {
 		case buttons.DOWNLOAD:
 			cmd = func() tea.Msg {
-				url, err := m.generateDownloadRequest()
+				url, err := service.GenerateDownloadRequest(m.project.GetSelected().Action,
+					m.project.GetSelected().Id,
+					m.language.GetSelected().Id,
+					m.springBootVersion.GetSelected().Id,
+					m.packaging.GetSelected().Id,
+					m.javaVersion.GetSelected().Id,
+					m.dependencies.GetSelectedIds(),
+					m.metadata.GetValues(),
+				)
 				if err != nil {
 					logger.Printf("Error generating download request: %v", err)
 					return buttons.ACTION_FAILED
 				}
 
-				err = downloadGeneratedZip(url.String(), path.Join(targetDirectory, path.Base(url.Path)))
+				err = service.DownloadGeneratedZip(url.String(), path.Join(targetDirectory, path.Base(url.Path)))
 				if err != nil {
 					logger.Printf("Error downloading zip: %v", err)
 					return buttons.ACTION_FAILED
@@ -550,7 +397,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case buttons.DOWNLOAD_EXTRACT:
 			cmd = func() tea.Msg {
-				url, err := m.generateDownloadRequest()
+				url, err := service.GenerateDownloadRequest(m.project.GetSelected().Action,
+					m.project.GetSelected().Id,
+					m.language.GetSelected().Id,
+					m.springBootVersion.GetSelected().Id,
+					m.packaging.GetSelected().Id,
+					m.javaVersion.GetSelected().Id,
+					m.dependencies.GetSelectedIds(),
+					m.metadata.GetValues(),
+				)
 				if err != nil {
 					logger.Printf("Error generating download request: %v", err)
 					return buttons.ACTION_FAILED
@@ -558,14 +413,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				base := path.Base(url.Path)
 				assetPath := path.Join(targetDirectory, base)
-				err = downloadGeneratedZip(url.String(), assetPath)
+				err = service.DownloadGeneratedZip(url.String(), assetPath)
 				if err != nil {
 					logger.Printf("Error downloading zip: %v", err)
 					return buttons.ACTION_FAILED
 				}
 
 				if strings.HasSuffix(base, "zip") {
-					err = unzipFile(assetPath, targetDirectory)
+					err = service.UnzipFile(assetPath, targetDirectory)
 					if err != nil {
 						logger.Printf("Error unzipping file: %v", err)
 						return buttons.ACTION_FAILED
@@ -636,25 +491,4 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, cmd
-}
-
-func getMeta() (springInitMeta, error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", springUrl, nil)
-	req.Header.Set("Accept", "application/json")
-	response, err := client.Do(req)
-	if err != nil {
-		return springInitMeta{}, err
-	}
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return springInitMeta{}, err
-	}
-
-	var responseObject springInitMeta
-	err = json.Unmarshal(body, &responseObject)
-	if err != nil {
-		return springInitMeta{}, err
-	}
-	return responseObject, nil
 }

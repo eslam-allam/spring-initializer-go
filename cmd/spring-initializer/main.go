@@ -18,7 +18,7 @@ var logger *log.Logger = log.Default()
 
 func main() {
 	tmpDir := os.TempDir()
-	f, err := tea.LogToFile(path.Join(tmpDir, "spring-init.log"), "Main loop")
+    f, err := tea.LogToFile(path.Join(tmpDir, constants.LogFileName), "Main loop")
 	if err != nil {
 		fmt.Printf("Failed to start logger: %v", err)
 		os.Exit(1)

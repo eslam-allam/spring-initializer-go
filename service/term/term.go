@@ -1,11 +1,14 @@
-package service
+package term
 
 import (
+	"log"
 	"os"
 
 	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/muesli/termenv"
 )
+
+var logger *log.Logger = log.Default()
 
 type termUpdate struct {
 	pForeground termenv.Color

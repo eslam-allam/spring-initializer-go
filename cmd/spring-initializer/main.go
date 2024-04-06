@@ -14,27 +14,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/constants"
-	"github.com/eslam-allam/spring-initializer-go/internal/models/buttons"
-	"github.com/eslam-allam/spring-initializer-go/internal/models/dependency"
-	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
-	"github.com/eslam-allam/spring-initializer-go/internal/models/radioList"
-	"github.com/eslam-allam/spring-initializer-go/internal/service"
+	"github.com/eslam-allam/spring-initializer-go/models/buttons"
+	"github.com/eslam-allam/spring-initializer-go/models/dependency"
+	"github.com/eslam-allam/spring-initializer-go/models/metadata"
+	"github.com/eslam-allam/spring-initializer-go/models/radioList"
+	"github.com/eslam-allam/spring-initializer-go/service/files"
+	"github.com/eslam-allam/spring-initializer-go/service/springio"
+	"github.com/eslam-allam/spring-initializer-go/service/term"
 )
 
 var logger *log.Logger = log.Default()
 
 var targetDirectory string = "."
-
-type checkListItem struct {
-	id      string
-	name    string
-	checked bool
-}
-
-type checkListGroup struct {
-	groupId string
-	items   []checkListItem
-}
 
 type section int
 
@@ -101,8 +92,31 @@ var defaultKeys MainKeyMap = MainKeyMap{
 	QUIT:         key.NewBinding(key.WithKeys("ctrl+q"), key.WithHelp("ctrl+q", "quit")),
 }
 
+func (m model) generateProject() (fullPath string, isZip bool, err error) {
+	url, err := springio.GenerateDownloadRequest(m.project.GetSelected().Action,
+		m.project.GetSelected().Id,
+		m.language.GetSelected().Id,
+		m.springBootVersion.GetSelected().Id,
+		m.packaging.GetSelected().Id,
+		m.javaVersion.GetSelected().Id,
+		m.dependencies.GetSelectedIds(),
+		m.metadata.GetValues(),
+	)
+	if err != nil {
+		return fullPath, isZip, fmt.Errorf("error generating download request: %v", err)
+	}
+
+	baseName := path.Base(url.Path)
+	fullPath = path.Join(targetDirectory, baseName)
+	err = springio.DownloadGeneratedZip(url.String(), fullPath)
+	if err != nil {
+		return fullPath, isZip, fmt.Errorf("error downloading zip: %v", err)
+	}
+	return fullPath, strings.HasSuffix(baseName, "zip"), nil
+}
+
 func initialModel() model {
-	metaData, err := service.GetMeta()
+	metaData, err := springio.GetMeta()
 	if err != nil {
 		panic(err)
 	}
@@ -192,39 +206,6 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
 		return initialModel()
 	})
-}
-
-func main() {
-	tmpDir := os.TempDir()
-	f, err := tea.LogToFile(path.Join(tmpDir, "spring-init.log"), "Main loop")
-	if err != nil {
-		fmt.Printf("Failed to start logger: %v", err)
-		os.Exit(1)
-	}
-	defer f.Close()
-
-	args := os.Args[1:]
-
-	if len(args) > 0 {
-		targetDirectory, err = service.ExpandAndMakeDir(args[0])
-		if err != nil {
-			logger.Printf("Error making directory: %v", err)
-			os.Exit(1)
-		}
-	}
-
-	p := tea.NewProgram(model{
-		spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
-	}, tea.WithAltScreen(), tea.WithMouseCellMotion())
-
-	colorUpdate := service.ApplyColors(constants.ForegroundColour, constants.BackgroundColour)
-
-	if _, err := p.Run(); err != nil {
-		logger.Printf("Error occurred in main loop: %v", err)
-		defer os.Exit(1)
-	}
-
-	service.ResetColors(colorUpdate)
 }
 
 var (
@@ -374,58 +355,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg {
 		case buttons.DOWNLOAD:
 			cmd = func() tea.Msg {
-				url, err := service.GenerateDownloadRequest(m.project.GetSelected().Action,
-					m.project.GetSelected().Id,
-					m.language.GetSelected().Id,
-					m.springBootVersion.GetSelected().Id,
-					m.packaging.GetSelected().Id,
-					m.javaVersion.GetSelected().Id,
-					m.dependencies.GetSelectedIds(),
-					m.metadata.GetValues(),
-				)
+				_, _, err := m.generateProject()
 				if err != nil {
-					logger.Printf("Error generating download request: %v", err)
-					return buttons.ACTION_FAILED
-				}
-
-				err = service.DownloadGeneratedZip(url.String(), path.Join(targetDirectory, path.Base(url.Path)))
-				if err != nil {
-					logger.Printf("Error downloading zip: %v", err)
+					logger.Printf("%v", err)
 					return buttons.ACTION_FAILED
 				}
 				return buttons.ACTION_SUCCESS
 			}
 		case buttons.DOWNLOAD_EXTRACT:
 			cmd = func() tea.Msg {
-				url, err := service.GenerateDownloadRequest(m.project.GetSelected().Action,
-					m.project.GetSelected().Id,
-					m.language.GetSelected().Id,
-					m.springBootVersion.GetSelected().Id,
-					m.packaging.GetSelected().Id,
-					m.javaVersion.GetSelected().Id,
-					m.dependencies.GetSelectedIds(),
-					m.metadata.GetValues(),
-				)
+				fullPath, isZip, err := m.generateProject()
 				if err != nil {
-					logger.Printf("Error generating download request: %v", err)
+					logger.Printf("%v", err)
 					return buttons.ACTION_FAILED
 				}
-
-				base := path.Base(url.Path)
-				assetPath := path.Join(targetDirectory, base)
-				err = service.DownloadGeneratedZip(url.String(), assetPath)
-				if err != nil {
-					logger.Printf("Error downloading zip: %v", err)
-					return buttons.ACTION_FAILED
-				}
-
-				if strings.HasSuffix(base, "zip") {
-					err = service.UnzipFile(assetPath, targetDirectory)
+				if isZip {
+					err = files.UnzipFile(fullPath, targetDirectory)
 					if err != nil {
 						logger.Printf("Error unzipping file: %v", err)
 						return buttons.ACTION_FAILED
 					}
-					os.Remove(assetPath)
+					err = os.Remove(fullPath)
+					if err != nil {
+						logger.Printf("Error deleting zip file: %v", err)
+					}
 				}
 
 				return buttons.ACTION_SUCCESS
@@ -491,4 +444,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, cmd
+}
+
+func main() {
+	tmpDir := os.TempDir()
+	f, err := tea.LogToFile(path.Join(tmpDir, "spring-init.log"), "Main loop")
+	if err != nil {
+		fmt.Printf("Failed to start logger: %v", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	args := os.Args[1:]
+
+	if len(args) > 0 {
+		targetDirectory, err = files.ExpandAndMakeDir(args[0])
+		if err != nil {
+			logger.Printf("Error making directory: %v", err)
+			os.Exit(1)
+		}
+	}
+
+	p := tea.NewProgram(model{
+		spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
+	}, tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	colorUpdate := term.ApplyColors(constants.ForegroundColour, constants.BackgroundColour)
+
+	if _, err := p.Run(); err != nil {
+		logger.Printf("Error occurred in main loop: %v", err)
+		defer os.Exit(1)
+	}
+
+	term.ResetColors(colorUpdate)
 }

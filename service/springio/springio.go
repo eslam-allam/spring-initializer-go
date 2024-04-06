@@ -1,4 +1,4 @@
-package service
+package springio
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/eslam-allam/spring-initializer-go/constants"
-	"github.com/eslam-allam/spring-initializer-go/internal/models/metadata"
+	"github.com/eslam-allam/spring-initializer-go/models/metadata"
 )
 
 

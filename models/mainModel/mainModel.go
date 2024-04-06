@@ -24,6 +24,16 @@ import (
 
 var logger *log.Logger = log.Default()
 
+var (
+	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
+	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
+				PaddingBottom(1).Bold(true).PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).
+					PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	currentSectionStyle lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
+)
+
 type section int
 
 const NSECTIONS = 8
@@ -205,16 +215,6 @@ func (m model) Init() tea.Cmd {
 	})
 }
 
-var (
-	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
-	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
-				PaddingBottom(1).Bold(true).PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
-	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
-	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).
-					PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
-	currentSectionStyle lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
-)
-
 func renderSection(title, s string, isCurrent bool) string {
 	section := sectionStyle.Render(s)
 	paddedTitle := lipgloss.PlaceHorizontal(lipgloss.Width(section)-3, lipgloss.Left, title)
@@ -333,7 +333,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msg.metadata.SetSize(m.metadata.GetSize())
 		msg.dependencies.SetSize(m.dependencies.GetSize())
 		msg.buttons.SetSize(m.buttons.GetSize())
-        msg.targetDirectory = m.targetDirectory
+		msg.targetDirectory = m.targetDirectory
 		msg.help.Width = m.help.Width
 		m = msg
 		m.state = READY

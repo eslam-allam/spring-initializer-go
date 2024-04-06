@@ -64,11 +64,12 @@ func ExpandAndMakeDir(targetDirectory string) (string, error) {
 			return "", fmt.Errorf("failed to get current working directory: %v", err)
 		}
 		targetDirectory = path.Join(cwd, targetDirectory)
-		if _, err := os.Stat(targetDirectory); errors.Is(err, os.ErrNotExist) {
-			err = os.MkdirAll(targetDirectory, os.ModePerm)
-			if err != nil {
-				return "", fmt.Errorf("failed to create target directory: %v", err)
-			}
+	}
+	if _, err := os.Stat(targetDirectory); errors.Is(err, os.ErrNotExist) {
+		logger.Printf("Target directory %s does not exist. Creating it now", targetDirectory)
+		err = os.MkdirAll(targetDirectory, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create target directory: %v", err)
 		}
 	}
 	return targetDirectory, nil

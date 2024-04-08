@@ -12,11 +12,13 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/muesli/reflow/truncate"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 var (
-	itemStyle  lipgloss.Style = lipgloss.NewStyle()
-	hoverStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour))
+	itemStyle        lipgloss.Style = lipgloss.NewStyle()
+	hoverStyle       lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.SecondaryColour))
+	descriptionStyle lipgloss.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(constants.HighlightColour))
 )
 
 type Model struct {
@@ -38,11 +40,11 @@ func (m *Model) SetSize(h, v int) {
 	m.width = h
 	m.height = v
 
-	if v < 3 {
-		v = 3
+	if v < 6 {
+		v = 6
 	}
 
-	m.paginate.PerPage = v - 2
+	m.paginate.PerPage = v - 5
 	m.paginate.SetTotalPages(len(m.filteredDeps))
 }
 
@@ -62,9 +64,10 @@ func (m *Model) GetSelectedIds() []string {
 }
 
 type Dependency struct {
-	Id        string
-	Name      string
-	GroupName string
+	Id          string
+	Name        string
+	GroupName   string
+	Description string
 }
 
 type MainKeyMap struct {
@@ -156,7 +159,8 @@ func (m Model) bodyView() string {
 
 		itemDisplay := itemStyle.Render(item.Name)
 		if currentIndex == m.cursor {
-			itemDisplay = hoverStyle.Render(itemDisplay)
+			itemDisplay = lipgloss.JoinVertical(lipgloss.Left, hoverStyle.Render(item.Name), 
+                descriptionStyle.MaxWidth(m.width-5).MaxHeight(3).Render(wordwrap.String(item.Description, m.width-5)))
 		}
 
 		if lipgloss.Width(itemDisplay) > m.width-4 {

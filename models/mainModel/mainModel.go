@@ -173,7 +173,13 @@ func initialModel() model {
 	}
 	for _, dependencyGroup := range metaData.Dependencies.Values {
 		for _, groupItem := range dependencyGroup.Values {
-			dependencies = append(dependencies, dependency.Dependency{GroupName: dependencyGroup.Name, Id: groupItem.Id, Name: groupItem.Name})
+			dependencies = append(dependencies,
+				dependency.Dependency{
+					GroupName:   dependencyGroup.Name,
+					Id:          groupItem.Id,
+					Name:        groupItem.Name,
+					Description: groupItem.Description,
+				})
 		}
 	}
 

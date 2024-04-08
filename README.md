@@ -75,10 +75,11 @@ The directory will be created if it doesn't exist.
 ## Todo
 
 - [x] Add ability to pick project folder.
-- [ ] Add description to dependency entries.
+- [x] Add description to dependency entries.
 - [ ] Make the UI more intuitive.
-- [ ] Refactor this unsightly code.
+- [x] Refactor this unsightly code.
 - [ ] Add confirmation message when creating a new project.
+- [ ] Add simple-mode for smaller terminals.
 
 ## Issues
 
@@ -97,13 +98,6 @@ the size of the terminal to a suitable size
 before launching the app. I currently don't have a solution for this limitation
 but hopefully will find a workaround in the future.
 
-### The app takes a long time to load
-
-Before the app launches, it sends a request to spring.io to fetch necessary
-metadata. This step is needed to display the various options you can select.
-I'm currently working on adding a loading screen for this step in the near
-future.
-
 ### The text is really small/unreadable
 
 Since this is a terminal-based app, it uses your terminal's font.
@@ -117,6 +111,13 @@ when launching the app while ensuring the terminal goes back to it's original st
 after quitting. In that case the app will inherit your terminal's background and
 foreground colors. If you are not using TMUX then please submit an issue. A temporary
 workaround would be to change your terminal's color scheme to a darker tone.
+
+### I'm getting something like "Windows cannot verify the publisher of this app"
+
+If you are using the precompiled binary, you may get a similar message if you
+are using windows or macOS. This simply means that this binary hasn't been verified
+by Microsoft/Apple and they can't guarantee it's validity. It does not mean the app
+is malicious.
 
 ## Contributing
 

@@ -1,6 +1,7 @@
 package dependency
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -22,29 +23,34 @@ var (
 )
 
 type Model struct {
-	Selected      map[string]struct{}
-	filter        string
-	mainKeys      MainKeyMap
-	filterKeys    FilterKeyMap
-	dependencies  []Dependency
-	filteredDeps  []Dependency
-	filterField   textinput.Model
-	paginate      paginator.Model
-	cursor        int
-	filterToggled bool
-	width         int
-	height        int
+	Selected        map[string]struct{}
+	filter          string
+	mainKeys        MainKeyMap
+	filterKeys      FilterKeyMap
+	dependencies    []Dependency
+	filteredDeps    []Dependency
+	filterField     textinput.Model
+	paginate        paginator.Model
+	cursor          int
+	width           int
+	height          int
+	filterToggled   bool
+	showDescription bool
 }
 
 func (m *Model) SetSize(h, v int) {
 	m.width = h
 	m.height = v
+	extraLines := 3
 
-	if v < 6 {
-		v = 6
+	if m.showDescription {
+		extraLines = 6
+	}
+	if v < extraLines {
+		v = extraLines
 	}
 
-	m.paginate.PerPage = v - 5
+	m.paginate.PerPage = v - extraLines - 1
 	m.paginate.SetTotalPages(len(m.filteredDeps))
 }
 
@@ -71,12 +77,13 @@ type Dependency struct {
 }
 
 type MainKeyMap struct {
-	Up           key.Binding
-	Down         key.Binding
-	PagePrev     key.Binding
-	PageNext     key.Binding
-	ToggleSelect key.Binding
-	Filter       key.Binding
+	Up                key.Binding
+	Down              key.Binding
+	PagePrev          key.Binding
+	PageNext          key.Binding
+	ToggleSelect      key.Binding
+	ToggleDescription key.Binding
+	Filter            key.Binding
 }
 
 func (k MainKeyMap) ShortHelp() []key.Binding {
@@ -88,16 +95,18 @@ func (k MainKeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down},
 		{k.PagePrev, k.PageNext},
 		{k.ToggleSelect, k.Filter},
+		{k.ToggleDescription},
 	}
 }
 
 var defaultMainKeys = MainKeyMap{
-	Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
-	Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
-	PagePrev:     key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "previous page")),
-	PageNext:     key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next page")),
-	ToggleSelect: key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "toggle selection")),
-	Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+	Up:                key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
+	Down:              key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
+	PagePrev:          key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "previous page")),
+	PageNext:          key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next page")),
+	ToggleSelect:      key.NewBinding(key.WithKeys("enter", " "), key.WithHelp("enter/space", "toggle selection")),
+	ToggleDescription: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "toggle description")),
+	Filter:            key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 }
 
 type FilterKeyMap struct {
@@ -121,8 +130,11 @@ var defaultFilterKeys = FilterKeyMap{
 func (m Model) View() string {
 	body := m.bodyView()
 	body = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, body)
-
-	body = lipgloss.JoinVertical(lipgloss.Center, body, truncate.StringWithTail(m.paginate.View(), uint(m.width), "…"))
+	paginator := m.paginate.View()
+	if lipgloss.Width(paginator) > m.width {
+		paginator = fmt.Sprintf("%d/%d", m.paginate.Page, m.paginate.TotalPages)
+	}
+	body = lipgloss.JoinVertical(lipgloss.Center, body, paginator)
 
 	filter := m.filterField.View()
 
@@ -159,12 +171,15 @@ func (m Model) bodyView() string {
 
 		itemDisplay := itemStyle.Render(item.Name)
 		if currentIndex == m.cursor {
-			itemDisplay = lipgloss.JoinVertical(lipgloss.Left, hoverStyle.Render(item.Name), 
-                descriptionStyle.MaxWidth(m.width-5).MaxHeight(3).Render(wordwrap.String(item.Description, m.width-5)))
+			itemDisplay = hoverStyle.Render(item.Name)
+			if m.showDescription {
+				itemDisplay = lipgloss.JoinVertical(lipgloss.Left, itemDisplay,
+					descriptionStyle.MaxWidth(m.width-5).MaxHeight(3).PaddingLeft(4).Render(wordwrap.String(item.Description, m.width-10)))
+			}
 		}
 
 		if lipgloss.Width(itemDisplay) > m.width-4 {
-			itemDisplay = truncate.StringWithTail(itemDisplay, uint(m.width-4), "…")
+			itemDisplay = truncate.StringWithTail(itemDisplay, uint(m.width-5), "…")
 		}
 		body.WriteString(itemDisplay)
 
@@ -181,6 +196,11 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) updateMain(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
+
+	case key.Matches(msg, m.mainKeys.ToggleDescription):
+		m.showDescription = !m.showDescription
+		m.SetSize(m.width, m.height)
+		m.paginate.Page = m.cursor / m.paginate.PerPage
 
 	case key.Matches(msg, m.mainKeys.Filter):
 		m.filterToggled = !m.filterToggled

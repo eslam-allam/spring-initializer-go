@@ -226,12 +226,16 @@ func (m Model) updateMain(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.mainKeys.PagePrev):
-		m.paginate.PrevPage()
-		m.cursor = m.paginate.Page * m.paginate.PerPage
+		if !m.paginate.OnFirstPage() {
+			m.paginate.PrevPage()
+			m.cursor = m.paginate.Page * m.paginate.PerPage
+		}
 
 	case key.Matches(msg, m.mainKeys.PageNext):
-		m.paginate.NextPage()
-		m.cursor = m.paginate.Page * m.paginate.PerPage
+		if !m.paginate.OnLastPage() {
+			m.paginate.NextPage()
+			m.cursor = m.paginate.Page * m.paginate.PerPage
+		}
 
 	// The "enter" key and the spacebar (a literal space) toggle
 	// the selected state for the item that the cursor is pointing at.

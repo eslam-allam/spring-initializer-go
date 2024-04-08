@@ -2,6 +2,7 @@ package dependency
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/muesli/reflow/truncate"
 	"github.com/muesli/reflow/wordwrap"
 )
+
+var logger *log.Logger = log.Default()
 
 var (
 	itemStyle        lipgloss.Style = lipgloss.NewStyle()
@@ -52,6 +55,7 @@ func (m *Model) SetSize(h, v int) {
 
 	m.paginate.PerPage = v - extraLines - 1
 	m.paginate.SetTotalPages(len(m.filteredDeps))
+	m.paginate.Page = m.cursor / m.paginate.PerPage
 }
 
 func (m Model) GetSize() (h, v int) {
@@ -200,7 +204,6 @@ func (m Model) updateMain(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.mainKeys.ToggleDescription):
 		m.showDescription = !m.showDescription
 		m.SetSize(m.width, m.height)
-		m.paginate.Page = m.cursor / m.paginate.PerPage
 
 	case key.Matches(msg, m.mainKeys.Filter):
 		m.filterToggled = !m.filterToggled

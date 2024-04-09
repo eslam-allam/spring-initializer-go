@@ -17,9 +17,11 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/models/buttons"
 	"github.com/eslam-allam/spring-initializer-go/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/models/metadata"
+	"github.com/eslam-allam/spring-initializer-go/models/overlay"
 	"github.com/eslam-allam/spring-initializer-go/models/radioList"
 	"github.com/eslam-allam/spring-initializer-go/service/files"
 	"github.com/eslam-allam/spring-initializer-go/service/springio"
+	"github.com/eslam-allam/spring-initializer-go/shared"
 )
 
 var logger *log.Logger = log.Default()
@@ -72,6 +74,7 @@ type model struct {
 	buttons           buttons.Model
 	state             appState
 	currentSection    section
+	notification      shared.Notification
 	width             int
 	height            int
 }
@@ -268,13 +271,27 @@ func (m model) View() string {
 		renderer("Project Metadata", m.metadata.View()),
 	)
 	rightSection := lipgloss.JoinVertical(lipgloss.Center, renderer("Dependencies", m.dependencies.View()), renderer("Generate", m.buttons.View()))
-	return m.renderMain(
+	body := m.renderMain(
 		lipgloss.JoinVertical(lipgloss.Center,
 			lipgloss.JoinHorizontal(lipgloss.Top, leftSection, rightSection),
 			m.help.View(m.keys)))
+
+	if m.notification.IsActive() {
+		h, v := lipgloss.Size(body)
+		notification := m.notification.View()
+		hn, vn := lipgloss.Size(notification)
+		body = overlay.PlaceOverlay(h/2-hn/2, v/2-vn/2, notification, body)
+	}
+
+	return body
 }
 
 func (m *model) updateHelp() {
+	if m.notification.IsActive() {
+		m.keys.SectionShortKeys = m.notification.ShortHelp()
+		m.keys.SectionFullKeys = m.notification.FullHelp()
+		return
+	}
 	switch m.currentSection {
 	case PROJECT:
 		m.keys.SectionShortKeys = m.project.ShortHelp()
@@ -328,6 +345,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 
+	case shared.NotificationMsg:
+		m.notification.Activate()
+		m.notification = m.notification.UpdateMessage(msg)
+		m.updateHelp()
+
 	case model:
 		msg.height = m.height
 		msg.width = m.width
@@ -341,6 +363,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msg.buttons.SetSize(m.buttons.GetSize())
 		msg.targetDirectory = m.targetDirectory
 		msg.help.Width = m.help.Width
+		msg.notification = m.notification
 		m = msg
 		m.state = READY
 
@@ -416,6 +439,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.buttons.SetSize(c2w, 5)
 
 		m.help.Width = c2w*2 - h - hs
+
+		m.notification.SetSize(c2w, cmv)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):
@@ -427,6 +452,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.QUIT):
 			return m, tea.Quit
 		}
+
+		if m.notification.IsActive() {
+			m.notification, cmd = m.notification.Update(msg)
+			return m, cmd
+		}
+
 		switch m.currentSection {
 
 		case PROJECT:
@@ -465,7 +496,9 @@ func WithTargetDir(targetDirectory string) modelOption {
 }
 
 func New(options ...modelOption) model {
-	model := model{}
+	model := model{
+        notification: shared.NewNotification(),
+    }
 
 	for _, opt := range options {
 		opt(&model)

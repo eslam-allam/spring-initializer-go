@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/constants"
+	"github.com/eslam-allam/spring-initializer-go/shared"
 )
 
 type Action int
@@ -119,6 +120,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.actionState = msg
 		switch msg {
 		case ACTION_SUCCESS, ACTION_FAILED:
+			cmd = func() tea.Msg {
+				return shared.NotificationMsg{
+					Message: "This is a notification",
+					Level:   shared.INFO,
+				}
+			}
 		case ACTION_RESET:
 			m.actionState = ACTION_IDOL
 		}

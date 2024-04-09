@@ -1,4 +1,4 @@
-package shared
+package notification
 
 import (
 	"github.com/charmbracelet/bubbles/key"
@@ -27,11 +27,14 @@ const (
 	errorColor   = "#f84841"
 )
 
-var notificationStyle lipgloss.Style = lipgloss.NewStyle().Padding(1).
-	Border(lipgloss.NormalBorder(), true).
-	BorderForeground(lipgloss.Color(constants.HighlightColour))
+var (
+	notificationStyle lipgloss.Style = lipgloss.NewStyle().Padding(1).
+				Border(lipgloss.NormalBorder(), true).
+				BorderForeground(lipgloss.Color(constants.HighlightColour))
+	notificationTextStyle = lipgloss.NewStyle()
+)
 
-type Notification struct {
+type Model struct {
 	message string
 	keys    NotificationKeyMap
 	level   NotificationLevel
@@ -40,45 +43,45 @@ type Notification struct {
 	height  int
 }
 
-func (n Notification) IsActive() bool {
-	return n.active
+func (m Model) IsActive() bool {
+	return m.active
 }
 
-func (n *Notification) Activate() {
-	n.active = true
+func (m *Model) Activate() {
+	m.active = true
 }
 
-func (n Notification) Update(msg tea.KeyMsg) (Notification, tea.Cmd) {
+func (m Model) Update(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, n.keys.DISMISS):
-		n.active = false
+	case key.Matches(msg, m.keys.DISMISS):
+		m.active = false
 	}
-	return n, nil
+	return m, nil
 }
 
-func (n Notification) UpdateMessage(msg NotificationMsg) Notification {
-	n.message = msg.Message
-	n.level = msg.Level
-	return n
+func (m Model) UpdateMessage(msg NotificationMsg) Model {
+	m.message = msg.Message
+	m.level = msg.Level
+	return m
 }
 
-func (n Notification) ShortHelp() []key.Binding {
-	return n.keys.ShortHelp()
+func (m Model) ShortHelp() []key.Binding {
+	return m.keys.ShortHelp()
 }
 
-func (n Notification) FullHelp() [][]key.Binding {
-	return n.keys.FullHelp()
+func (m Model) FullHelp() [][]key.Binding {
+	return m.keys.FullHelp()
 }
 
-func (n *Notification) SetSize(h, v int) {
-	n.width = h
-	n.height = v
+func (m *Model) SetSize(h, v int) {
+	m.width = h
+	m.height = v
 }
 
-func (n Notification) View() string {
+func (m Model) View() string {
 	var currentColor string
 
-	switch n.level {
+	switch m.level {
 	case INFO:
 		currentColor = infoColor
 	case WARNING:
@@ -86,10 +89,11 @@ func (n Notification) View() string {
 	case ERROR:
 		currentColor = errorColor
 	}
-	return notificationStyle.Copy().
-		Foreground(lipgloss.Color(currentColor)).Render(
-		lipgloss.Place(n.width, n.height, lipgloss.Center, lipgloss.Center,
-			wordwrap.String(n.message, n.width-2)))
+	return notificationStyle.
+		Render(
+			notificationTextStyle.MaxWidth(m.width).MaxHeight(m.height).
+				Foreground(lipgloss.Color(currentColor)).
+				Render(wordwrap.String(m.message, m.width-notificationStyle.GetHorizontalFrameSize())))
 }
 
 type NotificationKeyMap struct {
@@ -108,8 +112,8 @@ var defaultNotificationKeys NotificationKeyMap = NotificationKeyMap{
 	DISMISS: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "dismiss")),
 }
 
-func NewNotification() Notification {
-	return Notification{
+func New() Model {
+	return Model{
 		keys: defaultNotificationKeys,
 	}
 }

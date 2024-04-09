@@ -17,11 +17,11 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/models/buttons"
 	"github.com/eslam-allam/spring-initializer-go/models/dependency"
 	"github.com/eslam-allam/spring-initializer-go/models/metadata"
+	"github.com/eslam-allam/spring-initializer-go/models/notification"
 	"github.com/eslam-allam/spring-initializer-go/models/overlay"
 	"github.com/eslam-allam/spring-initializer-go/models/radioList"
 	"github.com/eslam-allam/spring-initializer-go/service/files"
 	"github.com/eslam-allam/spring-initializer-go/service/springio"
-	"github.com/eslam-allam/spring-initializer-go/shared"
 )
 
 var logger *log.Logger = log.Default()
@@ -65,16 +65,16 @@ type model struct {
 	keys              MainKeyMap
 	spinner           spinner.Model
 	metadata          metadata.Model
+	notification      notification.Model
 	dependencies      dependency.Model
-	project           radioList.Model
 	packaging         radioList.Model
 	springBootVersion radioList.Model
 	language          radioList.Model
 	javaVersion       radioList.Model
+	project           radioList.Model
 	buttons           buttons.Model
 	state             appState
 	currentSection    section
-	notification      shared.Notification
 	width             int
 	height            int
 }
@@ -280,7 +280,8 @@ func (m model) View() string {
 		h, v := lipgloss.Size(body)
 		notification := m.notification.View()
 		hn, vn := lipgloss.Size(notification)
-		body = overlay.PlaceOverlay(h/2-hn/2, v/2-vn/2, notification, body)
+		verticalPos := math.Floor(float64(v) * 0.5 - float64(vn) * 0.5)
+		body = overlay.PlaceOverlay(h/2-hn/2, int(verticalPos), notification, body)
 	}
 
 	return body
@@ -345,7 +346,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 
-	case shared.NotificationMsg:
+	case notification.NotificationMsg:
 		m.notification.Activate()
 		m.notification = m.notification.UpdateMessage(msg)
 		m.updateHelp()
@@ -497,8 +498,8 @@ func WithTargetDir(targetDirectory string) modelOption {
 
 func New(options ...modelOption) model {
 	model := model{
-        notification: shared.NewNotification(),
-    }
+		notification: notification.New(),
+	}
 
 	for _, opt := range options {
 		opt(&model)

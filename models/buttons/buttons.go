@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/constants"
-	"github.com/eslam-allam/spring-initializer-go/shared"
+	"github.com/eslam-allam/spring-initializer-go/models/notification"
 )
 
 type Action int
@@ -47,7 +47,6 @@ type Model struct {
 	width       int
 	height      int
 	actionIndex int
-	actionState ActionState
 	inAction    bool
 }
 
@@ -81,15 +80,6 @@ var (
 func (m Model) View() string {
 	var s string
 
-	switch m.actionState {
-	case ACTION_SUCCESS:
-
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, successMessageStyle.Render("Download Successful!"))
-	case ACTION_FAILED:
-
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, failureMessageStyle.Render("Download Failed, check logs for more info."))
-	}
-
 	if m.inAction {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), "Downloading..."))
 	}
@@ -117,17 +107,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case ActionState:
 		m.inAction = false
-		m.actionState = msg
 		switch msg {
-		case ACTION_SUCCESS, ACTION_FAILED:
+		case ACTION_SUCCESS:
 			cmd = func() tea.Msg {
-				return shared.NotificationMsg{
-					Message: "This is a notification",
-					Level:   shared.INFO,
+				return notification.NotificationMsg{
+					Message: "Download Successful!",
+					Level:   notification.INFO,
 				}
 			}
-		case ACTION_RESET:
-			m.actionState = ACTION_IDOL
+		case ACTION_FAILED:
+			cmd = func() tea.Msg {
+				return notification.NotificationMsg{
+					Message: "Download Failed!",
+					Level:   notification.ERROR,
+				}
+			}
 		}
 	case spinner.TickMsg:
 		if m.inAction {
@@ -138,10 +132,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, cmd
 		}
 
-		if m.actionState == ACTION_SUCCESS || m.actionState == ACTION_FAILED {
-			m.actionState = ACTION_IDOL
-			return m, cmd
-		}
 		switch {
 
 		case key.Matches(msg, m.keys.NEXT):

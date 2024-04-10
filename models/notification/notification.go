@@ -1,12 +1,15 @@
 package notification
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/eslam-allam/spring-initializer-go/models/overlay"
 	"github.com/muesli/reflow/wordwrap"
+	"golang.design/x/clipboard"
 )
 
 type NotificationMsg struct {
@@ -36,12 +39,14 @@ var (
 )
 
 type Model struct {
-	message string
-	keys    NotificationKeyMap
-	level   NotificationLevel
-	active  bool
-	width   int
-	height  int
+	message     string
+	keys        NotificationKeyMap
+	level       NotificationLevel
+	width       int
+	height      int
+	active      bool
+	copyAllowed bool
+	copied      bool
 }
 
 func (m Model) IsActive() bool {
@@ -52,12 +57,29 @@ func (m *Model) Activate() {
 	m.active = true
 }
 
-func (m Model) Update(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.DISMISS):
-		m.active = false
+type CopyDone struct{}
+
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case CopyDone:
+		m.copied = false
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.DISMISS):
+			m.active = false
+		case key.Matches(msg, m.keys.COPY):
+			clipboard.Write(clipboard.FmtText, []byte(m.message))
+			m.copied = true
+			cmd = func() tea.Msg {
+				time.Sleep(1 * time.Second)
+				return CopyDone{}
+			}
+
+		}
 	}
-	return m, nil
+	return m, cmd
 }
 
 func (m Model) UpdateMessage(msg NotificationMsg) Model {
@@ -67,11 +89,11 @@ func (m Model) UpdateMessage(msg NotificationMsg) Model {
 }
 
 func (m Model) ShortHelp() []key.Binding {
-	return m.keys.ShortHelp()
+	return m.keys.ShortHelp(m.copyAllowed)
 }
 
 func (m Model) FullHelp() [][]key.Binding {
-	return m.keys.FullHelp()
+	return m.keys.FullHelp(m.copyAllowed)
 }
 
 func (m *Model) SetSize(h, v int) {
@@ -94,7 +116,15 @@ func (m Model) View() string {
 		currentColor = errorColor
 		title = "ERROR"
 	}
-	body := notificationStyle.
+
+	currentNotificationStyle := notificationStyle.Copy()
+
+	if m.copied {
+		title = "COPIED"
+		currentNotificationStyle.BorderForeground(lipgloss.Color(infoColor))
+	}
+
+	body := currentNotificationStyle.
 		Render(
 			notificationTextStyle.MaxWidth(m.width).MaxHeight(m.height).
 				Foreground(lipgloss.Color(currentColor)).
@@ -105,22 +135,38 @@ func (m Model) View() string {
 
 type NotificationKeyMap struct {
 	DISMISS key.Binding
+	COPY    key.Binding
 }
 
-func (k NotificationKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.DISMISS}
+func (k NotificationKeyMap) ShortHelp(copyAllowed bool) []key.Binding {
+	keys := []key.Binding{k.DISMISS}
+	if copyAllowed {
+		keys = append(keys, k.COPY)
+	}
+	return keys
 }
 
-func (k NotificationKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.DISMISS}}
+func (k NotificationKeyMap) FullHelp(copyAllowed bool) [][]key.Binding {
+	keys := [][]key.Binding{{k.DISMISS}}
+	if copyAllowed {
+		keys[0] = append(keys[0], k.COPY)
+	}
+	return keys
 }
 
 var defaultNotificationKeys NotificationKeyMap = NotificationKeyMap{
 	DISMISS: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "dismiss")),
+	COPY:    key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy to clipboard")),
 }
 
 func New() Model {
+	copyAllowed := false
+	err := clipboard.Init()
+	if err == nil {
+		copyAllowed = true
+	}
 	return Model{
-		keys: defaultNotificationKeys,
+		keys:        defaultNotificationKeys,
+		copyAllowed: copyAllowed,
 	}
 }

@@ -27,8 +27,8 @@ import (
 var logger *log.Logger = log.Default()
 
 var (
-	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
-	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true)
+	docStyle                 lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
+	sectionTitleStyle        lipgloss.Style = lipgloss.NewStyle().Bold(true)
 	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy()
 	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true).
 					PaddingLeft(1).PaddingTop(1).BorderForeground(lipgloss.Color(constants.MainColour))
@@ -231,7 +231,7 @@ func renderSection(title, s string, isCurrent bool) string {
 		sectionTitle = currentSectionTitleStyle.Render(title)
 	}
 
-	return overlay.PlaceTitle(sectionTitle, section, 0, 0, currentSectionStyle.GetHorizontalFrameSize() / 2 + 1)
+	return overlay.PlaceTitle(sectionTitle, section, 0, 0, currentSectionStyle.GetHorizontalFrameSize()/2+1)
 }
 
 func (m model) iteratingRenderer() func(title, s string) string {
@@ -343,6 +343,9 @@ func cellDimentions(h, v int, mh, mv float64, cieling ...bool) (int, int) {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+
+	case notification.CopyDone:
+		m.notification, cmd = m.notification.Update(msg)
 
 	case notification.NotificationMsg:
 		m.notification.Activate()

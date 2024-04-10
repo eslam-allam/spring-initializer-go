@@ -73,7 +73,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			clipboard.Write(clipboard.FmtText, []byte(m.message))
 			m.copied = true
 			cmd = func() tea.Msg {
-				time.Sleep(2 * time.Second)
+				time.Sleep(constants.CopyTimeoutSeconds * time.Second)
 				return CopyDone{}
 			}
 

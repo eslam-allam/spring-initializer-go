@@ -21,3 +21,7 @@ const (
     DownloadTimeoutSeconds = 10
 )
 
+const (
+    CopyTimeoutSeconds = 2 
+)
+

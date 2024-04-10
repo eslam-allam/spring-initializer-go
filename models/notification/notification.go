@@ -33,7 +33,7 @@ const (
 
 var (
 	notificationStyle lipgloss.Style = lipgloss.NewStyle().Padding(1).
-				Border(lipgloss.NormalBorder(), true).
+				Border(lipgloss.ThickBorder(), true).
 				BorderForeground(lipgloss.Color(constants.HighlightColour))
 	notificationTextStyle = lipgloss.NewStyle()
 )
@@ -73,7 +73,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			clipboard.Write(clipboard.FmtText, []byte(m.message))
 			m.copied = true
 			cmd = func() tea.Msg {
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 				return CopyDone{}
 			}
 

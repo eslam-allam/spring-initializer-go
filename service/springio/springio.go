@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/eslam-allam/spring-initializer-go/models/metadata"
@@ -14,6 +15,10 @@ import (
 
 
 type metaFieldType string
+
+var client http.Client = http.Client{
+    Timeout: constants.DownloadTimeoutSeconds * time.Second,
+}
 
 const (
 	TEXT          metaFieldType = "text"
@@ -69,7 +74,7 @@ func GetMeta() (SpringInitMeta, error) {
 }
 
 func DownloadGeneratedZip(url string, filepath string) error {
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}

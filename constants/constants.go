@@ -18,4 +18,6 @@ const (
 const (
     LogFileName = "spring-init.log"
     SpringUrl = "https://start.spring.io"
+    DownloadTimeoutSeconds = 10
 )
+

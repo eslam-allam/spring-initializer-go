@@ -69,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.DISMISS):
 			m.active = false
-		case key.Matches(msg, m.keys.COPY):
+		case m.copyAllowed && key.Matches(msg, m.keys.COPY):
 			clipboard.Write(clipboard.FmtText, []byte(m.message))
 			m.copied = true
 			cmd = func() tea.Msg {

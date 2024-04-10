@@ -1,6 +1,8 @@
 package buttons
 
 import (
+	"log"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,6 +10,8 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/constants"
 	"github.com/eslam-allam/spring-initializer-go/models/notification"
 )
+
+var logger *log.Logger = log.Default()
 
 type Action int
 
@@ -24,6 +28,11 @@ const (
 	ACTION_FAILED
 	ACTION_RESET
 )
+
+type ActionStateMessage struct {
+	Message string
+	State   ActionState
+}
 
 var (
 	downloadCmd tea.Cmd = func() tea.Msg {
@@ -105,20 +114,20 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 
-	case ActionState:
+	case ActionStateMessage:
 		m.inAction = false
-		switch msg {
+		switch msg.State {
 		case ACTION_SUCCESS:
 			cmd = func() tea.Msg {
 				return notification.NotificationMsg{
-					Message: "Download Successful!",
+					Message: msg.Message,
 					Level:   notification.INFO,
 				}
 			}
 		case ACTION_FAILED:
 			cmd = func() tea.Msg {
 				return notification.NotificationMsg{
-					Message: "Download Failed!",
+					Message: msg.Message,
 					Level:   notification.ERROR,
 				}
 			}

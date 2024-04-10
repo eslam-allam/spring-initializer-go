@@ -13,11 +13,10 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/models/metadata"
 )
 
-
 type metaFieldType string
 
 var client http.Client = http.Client{
-    Timeout: constants.DownloadTimeoutSeconds * time.Second,
+	Timeout: constants.DownloadTimeoutSeconds * time.Second,
 }
 
 const (

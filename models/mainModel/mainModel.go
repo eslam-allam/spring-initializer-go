@@ -280,7 +280,7 @@ func (m model) View() string {
 		h, v := lipgloss.Size(body)
 		notification := m.notification.View()
 		hn, vn := lipgloss.Size(notification)
-		verticalPos := math.Floor(float64(v) * 0.5 - float64(vn) * 0.5)
+		verticalPos := math.Floor(float64(v)*0.5 - float64(vn)*0.5)
 		body = overlay.PlaceOverlay(h/2-hn/2, int(verticalPos), notification, body)
 	}
 
@@ -376,7 +376,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.buttons, cmd = m.buttons.Update(msg)
 		}
 
-	case buttons.ActionState:
+	case buttons.ActionStateMessage:
 		m.buttons, cmd = m.buttons.Update(msg)
 
 	case buttons.Action:
@@ -386,30 +386,48 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_, _, err := m.generateProject()
 				if err != nil {
 					logger.Printf("%v", err)
-					return buttons.ACTION_FAILED
+					return buttons.ActionStateMessage{
+						State:   buttons.ACTION_FAILED,
+						Message: fmt.Sprintf("Failed to Download file: %s", err),
+					}
 				}
-				return buttons.ACTION_SUCCESS
+				return buttons.ActionStateMessage{
+					State:   buttons.ACTION_SUCCESS,
+					Message: "File Downloaded Successfully!",
+				}
 			}
 		case buttons.DOWNLOAD_EXTRACT:
 			cmd = func() tea.Msg {
 				fullPath, isZip, err := m.generateProject()
 				if err != nil {
 					logger.Printf("%v", err)
-					return buttons.ACTION_FAILED
+					return buttons.ActionStateMessage{
+						State:   buttons.ACTION_FAILED,
+						Message: fmt.Sprintf("Failed to Download file: %s", err),
+					}
 				}
 				if isZip {
 					err = files.UnzipFile(fullPath, m.targetDirectory)
 					if err != nil {
 						logger.Printf("Error unzipping file: %v", err)
-						return buttons.ACTION_FAILED
+						return buttons.ActionStateMessage{
+							State:   buttons.ACTION_FAILED,
+							Message: fmt.Sprintf("Failed to extract project: %s", err),
+						}
 					}
 					err = os.Remove(fullPath)
 					if err != nil {
 						logger.Printf("Error deleting zip file: %v", err)
+						return buttons.ActionStateMessage{
+							State:   buttons.ACTION_SUCCESS,
+							Message: fmt.Sprintf("Project extracted but could not delete zip: %s", err),
+						}
 					}
 				}
-
-				return buttons.ACTION_SUCCESS
+				return buttons.ActionStateMessage{
+					State:   buttons.ACTION_SUCCESS,
+					Message: "Project Generated Successfully!",
+				}
 			}
 		}
 

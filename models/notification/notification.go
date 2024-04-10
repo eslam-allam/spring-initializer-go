@@ -5,6 +5,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/eslam-allam/spring-initializer-go/constants"
+	"github.com/eslam-allam/spring-initializer-go/models/overlay"
 	"github.com/muesli/reflow/wordwrap"
 )
 
@@ -80,20 +81,26 @@ func (m *Model) SetSize(h, v int) {
 
 func (m Model) View() string {
 	var currentColor string
+	var title string
 
 	switch m.level {
 	case INFO:
 		currentColor = infoColor
+		title = "INFO"
 	case WARNING:
 		currentColor = warningColor
+		title = "WARNING"
 	case ERROR:
 		currentColor = errorColor
+		title = "ERROR"
 	}
-	return notificationStyle.
+	body := notificationStyle.
 		Render(
 			notificationTextStyle.MaxWidth(m.width).MaxHeight(m.height).
 				Foreground(lipgloss.Color(currentColor)).
 				Render(wordwrap.String(m.message, m.width-notificationStyle.GetHorizontalFrameSize())))
+	x := notificationStyle.GetHorizontalFrameSize()/2 + notificationTextStyle.GetHorizontalFrameSize()/2
+	return overlay.PlaceTitle(title, body, 0, 0, x, 0)
 }
 
 type NotificationKeyMap struct {

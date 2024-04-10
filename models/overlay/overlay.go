@@ -2,8 +2,10 @@ package overlay
 
 import (
 	"bytes"
+	"math"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 	"github.com/muesli/ansi"
 	"github.com/muesli/reflow/truncate"
@@ -164,4 +166,19 @@ func cutLeft(s string, cutWidth int) string {
 
 func clamp(v, lower, upper int) int {
 	return min(max(v, lower), upper)
+}
+
+func PlaceTitle(title, body string, positionX, positionY float64, padding ...int) string {
+	bodyWidth, bodyHeight := lipgloss.Size(body)
+	var px, py int
+	if len(padding) > 0 {
+		px = padding[0]
+		if len(padding) > 1 {
+			py = padding[1]
+		}
+	}
+
+	titlePosX := int(math.Floor(float64(bodyWidth)*positionX)) + px
+	titlePosY := int(math.Floor(float64(bodyHeight)*positionY)) + py
+	return PlaceOverlay(titlePosX, titlePosY, title, body)
 }

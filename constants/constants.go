@@ -12,7 +12,7 @@ const (
 
 const (
     MinScreenWidth int = 92
-    MinScreenHeight int = 30
+    MinScreenHeight int = 26
 )
 
 const (

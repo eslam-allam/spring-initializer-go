@@ -28,11 +28,10 @@ var logger *log.Logger = log.Default()
 
 var (
 	docStyle          lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder(), true).Padding(1)
-	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true).Border(lipgloss.NormalBorder(), true, true, false).
-				PaddingBottom(1).Bold(true).PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
-	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
-	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, true, true).
-					PaddingLeft(1).BorderForeground(lipgloss.Color(constants.MainColour))
+	sectionTitleStyle lipgloss.Style = lipgloss.NewStyle().Bold(true)
+	currentSectionTitleStyle lipgloss.Style = sectionTitleStyle.Copy()
+	sectionStyle             lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true).
+					PaddingLeft(1).PaddingTop(1).BorderForeground(lipgloss.Color(constants.MainColour))
 	currentSectionStyle lipgloss.Style = sectionStyle.Copy().BorderForeground(lipgloss.Color(constants.HighlightColour))
 )
 
@@ -226,14 +225,13 @@ func (m model) Init() tea.Cmd {
 
 func renderSection(title, s string, isCurrent bool) string {
 	section := sectionStyle.Render(s)
-	paddedTitle := lipgloss.PlaceHorizontal(lipgloss.Width(section)-3, lipgloss.Left, title)
-	sectionTitle := sectionTitleStyle.Render(paddedTitle)
+	sectionTitle := sectionTitleStyle.Render(title)
 	if isCurrent {
 		section = currentSectionStyle.Render(s)
-		sectionTitle = currentSectionTitleStyle.Render(paddedTitle)
+		sectionTitle = currentSectionTitleStyle.Render(title)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, sectionTitle, section)
+	return overlay.PlaceTitle(sectionTitle, section, 0, 0, currentSectionStyle.GetHorizontalFrameSize() / 2 + 1)
 }
 
 func (m model) iteratingRenderer() func(title, s string) string {
@@ -436,7 +434,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 
 		hs, vs := sectionStyle.GetFrameSize()
-		hs, vs = hs+1, vs+sectionTitleStyle.GetVerticalFrameSize()+1
+		hs, vs = hs+1, vs+sectionTitleStyle.GetVerticalFrameSize()
 		cellDimentsionCalc := func(eh, ev int, mh, mv float64, cieling ...bool) (int, int) {
 			return cellDimentions(m.width-h-(hs*eh), m.height-v-(vs*ev)-2, mh, mv, cieling...)
 		}
@@ -454,7 +452,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c2w := cw*2 + hs - 1
 		m.metadata.SetSize(c2w, 5)
 
-		m.dependencies.SetSize(c2w, pv+(cmv-5-pv)+2)
+		m.dependencies.SetSize(c2w, pv+(cmv-5-pv)+1)
 		m.buttons.SetSize(c2w, 5)
 
 		m.help.Width = c2w*2 - h - hs

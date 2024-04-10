@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"strings"
 
@@ -180,5 +181,5 @@ func PlaceTitle(title, body string, positionX, positionY float64, padding ...int
 
 	titlePosX := int(math.Floor(float64(bodyWidth)*positionX)) + px
 	titlePosY := int(math.Floor(float64(bodyHeight)*positionY)) + py
-	return PlaceOverlay(titlePosX, titlePosY, title, body)
+	return PlaceOverlay(titlePosX, titlePosY, fmt.Sprintf(" %s ", title), body)
 }

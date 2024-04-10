@@ -44,16 +44,16 @@ type Model struct {
 func (m *Model) SetSize(h, v int) {
 	m.width = h
 	m.height = v
-	extraLines := 3
+	extraLines := 1
 
 	if m.showDescription {
-		extraLines = 6
+		extraLines = 4
 	}
-	if v < extraLines {
-		v = extraLines
+	if v <= extraLines {
+		v = extraLines + 1
 	}
 
-	m.paginate.PerPage = v - extraLines - 1
+	m.paginate.PerPage = v - extraLines
 	m.paginate.SetTotalPages(len(m.filteredDeps))
 	m.paginate.Page = m.cursor / m.paginate.PerPage
 }

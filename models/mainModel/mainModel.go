@@ -19,6 +19,7 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/models/metadata"
 	"github.com/eslam-allam/spring-initializer-go/models/notification"
 	"github.com/eslam-allam/spring-initializer-go/models/overlay"
+	"github.com/eslam-allam/spring-initializer-go/models/popup"
 	"github.com/eslam-allam/spring-initializer-go/models/radioList"
 	"github.com/eslam-allam/spring-initializer-go/service/files"
 	"github.com/eslam-allam/spring-initializer-go/service/springio"
@@ -65,6 +66,7 @@ type model struct {
 	spinner           spinner.Model
 	metadata          metadata.Model
 	notification      notification.Model
+    popup             popup.Model
 	dependencies      dependency.Model
 	packaging         radioList.Model
 	springBootVersion radioList.Model

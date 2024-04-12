@@ -1,6 +1,8 @@
 package popup
 
 import (
+	"log"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -8,10 +10,20 @@ import (
 	"github.com/eslam-allam/spring-initializer-go/models/overlay"
 )
 
-type SizableModel interface {
-	Update(msg tea.Msg) (SizableModel, tea.Cmd)
+var logger *log.Logger = log.Default()
+
+type PopupModule interface {
+	Update(msg tea.Msg) (PopupModule, tea.Cmd)
 	View() string
-	SetSize(h, v int)
+	SetSize(h, v int) PopupModule
+	GetSize() (h, v int)
+	ShortHelp() []key.Binding
+	FullHelp() [][]key.Binding
+}
+
+type PopUpMessage struct {
+	Content PopupModule
+	Title   string
 }
 
 type PopupKeys struct {
@@ -34,7 +46,7 @@ var defaultPopupKeys = PopupKeys{
 
 type Model struct {
 	title      string
-	innerModel SizableModel
+	innerModel PopupModule
 	keys       PopupKeys
 	active     bool
 	height     int
@@ -45,15 +57,14 @@ func (m Model) IsActive() bool {
 	return m.active
 }
 
-func (m *Model) Activate() {
-	m.active = true
-}
-
 func (m *Model) SetSize(h, v int) {
 	m.width = h
 	m.height = v
 	hp, vp := popupStyle.GetFrameSize()
-	m.innerModel.SetSize(h-hp, v-vp)
+
+	if m.innerModel != nil {
+		m.innerModel.SetSize(h-hp, v-vp)
+	}
 }
 
 func (m Model) ShortHelp() []key.Binding {
@@ -67,6 +78,14 @@ func (m Model) FullHelp() [][]key.Binding {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case PopUpMessage:
+		logger.Println("PopUpMessage")
+		m.active = true
+		m.innerModel = msg.Content
+		m.title = msg.Title
+		m.keys.innerKeysShort = m.innerModel.ShortHelp()
+		m.keys.innerKeysLong = m.innerModel.FullHelp()
+		m.SetSize(m.width, m.height)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.DISMISS):
@@ -88,11 +107,9 @@ func (m Model) View() string {
 	return overlay.PlaceTitle(m.title, body, 0, 0, x, 0)
 }
 
-func New(title string, inner SizableModel) Model {
-    return Model{
-        title:      title,
-        innerModel: inner,
-        keys:       defaultPopupKeys,
-        active:     false,
-    }
+func New() Model {
+	return Model{
+		keys:   defaultPopupKeys,
+		active: false,
+	}
 }

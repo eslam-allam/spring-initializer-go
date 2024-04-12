@@ -66,7 +66,7 @@ type model struct {
 	spinner           spinner.Model
 	metadata          metadata.Model
 	notification      notification.Model
-    popup             popup.Model
+	popup             popup.Model
 	dependencies      dependency.Model
 	packaging         radioList.Model
 	springBootVersion radioList.Model
@@ -284,6 +284,15 @@ func (m model) View() string {
 		body = overlay.PlaceOverlay(h/2-hn/2, int(verticalPos), notification, body)
 	}
 
+	if m.popup.IsActive() {
+
+		h, v := lipgloss.Size(body)
+		popUp := m.popup.View()
+		hn, vn := lipgloss.Size(popUp)
+		verticalPos := math.Floor(float64(v)*0.5 - float64(vn)*0.5)
+		body = overlay.PlaceOverlay(h/2-hn/2, int(verticalPos), popUp, body)
+	}
+
 	return body
 }
 
@@ -291,6 +300,11 @@ func (m *model) updateHelp() {
 	if m.notification.IsActive() {
 		m.keys.SectionShortKeys = m.notification.ShortHelp()
 		m.keys.SectionFullKeys = m.notification.FullHelp()
+		return
+	}
+	if m.popup.IsActive() {
+		m.keys.SectionShortKeys = m.popup.ShortHelp()
+		m.keys.SectionFullKeys = m.popup.FullHelp()
 		return
 	}
 	switch m.currentSection {
@@ -354,6 +368,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.notification = m.notification.UpdateMessage(msg)
 		m.updateHelp()
 
+	case popup.PopUpMessage:
+		m.popup, cmd = m.popup.Update(msg)
 	case model:
 		msg.height = m.height
 		msg.width = m.width
@@ -368,6 +384,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msg.targetDirectory = m.targetDirectory
 		msg.help.Width = m.help.Width
 		msg.notification = m.notification
+		msg.popup = m.popup
 		m = msg
 		m.state = READY
 
@@ -463,6 +480,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.Width = c2w*2 - h - hs
 
 		m.notification.SetSize(c2w, cmv)
+		m.popup.SetSize(c2w, cmv)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.NEXT_SECTION):
@@ -477,6 +495,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.notification.IsActive() {
 			m.notification, cmd = m.notification.Update(msg)
+			return m, cmd
+		}
+
+		if m.popup.IsActive() {
+			m.popup, cmd = m.popup.Update(msg)
 			return m, cmd
 		}
 
@@ -520,6 +543,7 @@ func WithTargetDir(targetDirectory string) modelOption {
 func New(options ...modelOption) model {
 	model := model{
 		notification: notification.New(),
+		popup:        popup.New(),
 	}
 
 	for _, opt := range options {
